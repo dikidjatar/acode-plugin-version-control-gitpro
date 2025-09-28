@@ -17,7 +17,6 @@ async function checkIgnoredFiles(filepaths, concurrency = 50) {
       const filepath = filepaths[index];
       try {
         const isIgnored = await git.post('/isIgnored', { filepath });
-        console.log({filepath, isIgnored});
         results.set(filepath, isIgnored);
       } catch (error) {
         results.set(filepath, false);
