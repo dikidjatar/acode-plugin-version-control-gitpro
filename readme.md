@@ -8,6 +8,17 @@ A powerful Version Control Git integration plugin for [Acode Editor](https://aco
 
 > **Note**: The plugin is paid in the Acode store to support ongoing development 💝
 
+## 📸 Screenshots
+
+<div style="display: flex; overflow-x: auto; gap: 10px; padding: 10px;">
+  <img src="https://raw.githubusercontent.com/dikidjatar/acode-plugin-version-control-gitpro/refs/heads/main/screenshot/1.jpg" alt="Sidebar Interface" width="300"/>
+  <img src="https://raw.githubusercontent.com/dikidjatar/acode-plugin-version-control-gitpro/refs/heads/main/screenshot/2.jpg" width="300"/>
+  <img src="https://raw.githubusercontent.com/dikidjatar/acode-plugin-version-control-gitpro/refs/heads/main/screenshot/3.jpg" width="300"/>
+  <img src="https://raw.githubusercontent.com/dikidjatar/acode-plugin-version-control-gitpro/refs/heads/main/screenshot/4.jpg" alt="Branch Management" width="300"/>
+  <img src="https://raw.githubusercontent.com/dikidjatar/acode-plugin-version-control-gitpro/refs/heads/main/screenshot/5.jpg" alt="Git Status Display" width="300"/>
+  <img src="https://raw.githubusercontent.com/dikidjatar/acode-plugin-version-control-gitpro/refs/heads/main/screenshot/6.jpg" alt="Git Status Display" width="300"/>
+</div>
+
 ## ⚠️ IMPORTANT REQUIREMENTS
 
 ### Prerequisites Required BEFORE Installation
