@@ -1,0 +1,8 @@
+/node_modules
+/tmp
+
+dist/main.css
+dist/main.js
+yarn.lock
+dist.zip
+plugin.zip

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://acode.app/schema/plugin/v0.1.0.json",
+  "id": "acode.plugin.version.control.gitpro",
+  "name": "Version Control (Git) Pro",
+  "main": "main.js",
+  "version": "1.0.0",
+  "repository": "https://github.com/dikidjatar/acode-plugin-version-control-gitpro.git",
+  "icon": "icon.png",
+  "files": [
+    "assets/source-control.svg",
+    "assets/dash.svg",
+    "assets/git-branch.svg"
+  ],
+  "minVersionCode": 290,
+  "license": "MIT",
+  "changelogs": "changelogs.md",
+  "keywords": ["Version Control", "Git", "Source Control"],
+  "price": 0,
+  "author": {
+    "name": "Diki Djatar",
+    "email": "dikidjatar@gmail.com",
+    "github": "dikidjatar"
+  }
+}

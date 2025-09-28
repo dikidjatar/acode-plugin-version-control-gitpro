@@ -1,0 +1,21 @@
+GET http://10.224.61.35:3080/git/status?dir=/data/data/com.termux/files/home/projects/gemini-video
+
+###
+
+POST http://10.224.61.35:3080/git/isIgnored
+Content-Type: application/json
+
+{
+  "dir": "/data/data/com.termux/files/home/projects/gemini-video",
+  "filepath": "node_modules/"
+}
+
+###
+
+POST http://10.224.61.35:3080/git/isIgnored
+Content-Type: application/json
+
+{
+  "dir": "/data/data/com.termux/files/home/AcodePlugins/acode-plugin-version-control",
+  "filepath": "dash.svg"
+}
