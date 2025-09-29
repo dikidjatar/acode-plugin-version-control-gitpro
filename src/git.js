@@ -1,7 +1,7 @@
 // Copyright (c) [2025] [Diki Djatar]
 // SPDX-License-Identifier: MIT
 
-import { DEFAULT_SETTINGS, STATUS_MAP } from "./constants";
+import { DEFAULT_SETTINGS, STATUS_MAP } from "./constants.js";
 import BaseError, {
 	InvalidResponse,
 	GitError,
@@ -10,8 +10,8 @@ import BaseError, {
 	ServerUnreachable,
 	StagedDiffersFromHead,
 	WebSocketError
-} from "./errors";
-import { hasStagedDiffersFromHead, runWorkers } from "./utils";
+} from "./errors.js";
+import { hasStagedDiffersFromHead, runWorkers } from "./utils.js";
 
 class GitService {
 	#serverUrl;
@@ -230,8 +230,8 @@ class GitService {
 	/**
 	 * @returns {Promise<Array<string>>}
 	 */
-	async listBranches() {
-		return await this.post('/listBranches');
+	async listBranches(remote = undefined) {
+		return await this.post('/listBranches', { remote });
 	}
 
 	async createBranch(branch) {

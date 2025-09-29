@@ -5,26 +5,11 @@ const jszip = require('jszip');
 const iconFile = path.join(__dirname, 'icon.png');
 const pluginJSON = path.join(__dirname, 'plugin.json');
 const distFolder = path.join(__dirname, 'dist');
-const json = JSON.parse(fs.readFileSync(pluginJSON, 'utf8'));
-let readmeDotMd;
-let changelogDotMd;
+let readmeDotMd = path.join(__dirname, 'readme.md');
+let changelogDotMd = path.join(__dirname, 'changelogs.md');
 
-if (!json.readme) {
-  readmeDotMd = path.join(__dirname, 'readme.md');
-  if (!fs.existsSync(readmeDotMd)) {
-    readmeDotMd = path.join(__dirname, 'README.md');
-  }
-}
-
-
-if (!json.changelogs) {
-  if (!fs.existsSync(changelogDotMd)) {
-    changelogDotMd = path.join(__dirname, 'CHANGELOG.md');
-  }
-
-  if (!fs.existsSync(changelogDotMd)) {
-    changelogDotMd = path.join(__dirname, 'changelog.md');
-  }
+if (!fs.existsSync(readmeDotMd)) {
+  readmeDotMd = path.join(__dirname, 'README.md');
 }
 
 // create zip file of dist folder
@@ -38,7 +23,7 @@ if (readmeDotMd) {
   zip.file("readme.md", fs.readFileSync(readmeDotMd));
 }
 if (changelogDotMd) {
-  zip.file("changelog.md", fs.readFileSync(changelogDotMd));
+  zip.file("changelogs.md", fs.readFileSync(changelogDotMd));
 }
 
 loadFile('', distFolder);

@@ -6,8 +6,6 @@ A powerful Version Control Git integration plugin for [Acode Editor](https://aco
 ![License](https://img.shields.io/badge/license-MIT-yellow.svg)
 ![Github](https://img.shields.io/badge/open%20source-grey?style=for-the-badge&logo=github)
 
-> **Note**: The plugin is paid in the Acode store to support ongoing development 💝
-
 ## 📸 Screenshots
 
 <div style="display: flex; overflow-x: auto; gap: 10px; padding: 10px;">
@@ -35,15 +33,12 @@ git-server
 
 For complete setup instructions and troubleshooting, visit: [https://github.com/dikidjatar/git-server](https://github.com/dikidjatar/git-server)
 
-> **🚨 WARNING**: Please install and test the Git server BEFORE purchasing this plugin from the Acode store. If the server is not running properly, this plugin cannot function.
-
 ### Performance & Project Size
 This plugin is **engineered for performance** and **efficiency**:
 - ⚡ **Optimized Architecture**: Designed with client-server architecture for maximum speed
 - 🎯 **Performance Focused**: Handles projects with **up to 1,500 files** smoothly
 - 🚫 **Not Recommended**: For projects with more than 1,500 files (performance may degrade)
 
-**Why This Approach?**
 Unlike the [previous version control plugin](https://github.com/dikidjatar/acode-plugin-version-control) that used isomorphic-git directly in the browser (which was extremely slow), this plugin uses a dedicated Git server architecture that provides:
 - Significantly faster Git operations
 - Proper handling of large repositories
@@ -70,13 +65,13 @@ Unlike the [previous version control plugin](https://github.com/dikidjatar/acode
 
 ## 📱 Installation
 
-### Option 1: From Acode Store (Recommended)
+### Option 1: From Acode
 1. Open Acode Editor on your Android device
 2. Go to **Settings** → **Plugins**
 3. Search for "Version Control Pro"
 4. Install and restart Acode
 
-### Option 2: Build from Source (Free)
+### Option 2: Build from Source
 ```bash
 git clone https://github.com/dikidjatar/acode-plugin-version-control-gitpro
 cd acode-plugin-version-control-gitpro
@@ -229,7 +224,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 💝 Support the Project
 
 - ⭐ **Star** this repository
-- 💰 **Purchase** from Acode store to support development
 - 🐛 **Report** bugs and suggest features
 
 ## 📞 Support & Contact

@@ -1,17 +1,12 @@
 // Copyright (c) [2025] [Diki Djatar]
 // SPDX-License-Identifier: MIT
 
-import BaseError, { InvalidUri, UnsupportedUri, UriNotAllowed } from "./errors";
-
-const PACKAGE_NAME = window.BuildInfo
-  ? window.BuildInfo.packageName
-  : window.IS_FREE_VERSION
-    ? 'com.foxdebug.acodefree'
-    : 'com.foxdebug.acode';
+import BaseError, { InvalidUri, UnsupportedUri, UriNotAllowed } from "./errors.js";
 
 const TERMUX_PREFIX = 'content://com.termux.documents/tree/';
 const ANDROID_EXTERNAL_PREFIX = 'content://com.android.externalstorage.documents/tree/';
-const ACODE_PREFIX = `content://${PACKAGE_NAME}.documents/tree/`;
+const ACODE_PREFIX = `content://'com.foxdebug.acode.documents/tree/`;
+const ACODE_FREE_PREFIX = `content://'com.foxdebug.acodefree.documents/tree/`;
 const FILE_PREFIX = 'file://';
 const TERMUX_HOME_PREFIX = '/data/data/com.termux/files/home';
 const TERMUX_STORAGE_PREFIX = `${TERMUX_HOME_PREFIX}/storage`;
@@ -42,7 +37,7 @@ export function resolveRepoDir(uri) {
   if (decoded.startsWith(FILE_PREFIX)) {
     return resolveFileUri(decoded);
   }
-  if (decoded.startsWith(ACODE_PREFIX)) {
+  if (decoded.startsWith(ACODE_PREFIX) || decoded.startsWith(ACODE_FREE_PREFIX)) {
     return resolveAcodeUri(decoded);
   }
 
@@ -119,7 +114,7 @@ function resolveFileUri(decodedUri) {
  * @param {string} uri 
  */
 function resolveAcodeUri(uri) {
-  let after = uri.slice(ACODE_PREFIX.length);
+  let after = uri.slice(uri.startsWith(ACODE_PREFIX) ? ACODE_PREFIX.length : ACODE_FREE_PREFIX.length);
   if (!after.includes('::')) {
     throw new UriNotAllowed('acode home directory');
   }

@@ -3,7 +3,7 @@
   "id": "acode.plugin.version.control.gitpro",
   "name": "Version Control (Git) Pro",
   "main": "main.js",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "repository": "https://github.com/dikidjatar/acode-plugin-version-control-gitpro.git",
   "icon": "icon.png",
   "files": [
@@ -15,7 +15,7 @@
   "license": "MIT",
   "changelogs": "changelogs.md",
   "keywords": ["Version Control", "Git", "Source Control"],
-  "price": 29,
+  "price": 0,
   "author": {
     "name": "Diki Djatar",
     "email": "dikidjatar@gmail.com",

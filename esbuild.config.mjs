@@ -6,7 +6,7 @@ const isServe = process.argv.includes("--serve");
 
 // Function to pack the ZIP file
 function packZip() {
-  exec("node ./pack-zip.js", (err, stdout, stderr) => {
+  exec("node ./pack-zip.cjs", (err, stdout, stderr) => {
     if (err) {
       console.error("Error packing zip:", err);
       return;

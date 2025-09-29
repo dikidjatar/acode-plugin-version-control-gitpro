@@ -1,6 +1,7 @@
 {
   "name": "acode-plugin-version-control-gitpro",
-  "version": "1.0.0",
+  "version": "1.0.1",
+  "type": "module",
   "description": "Plugin for Acode to provide version control features",
   "main": "src/main.js",
   "repository": "https://github.com/dikidjatar/acode-plugin-version-control-gitpro",
