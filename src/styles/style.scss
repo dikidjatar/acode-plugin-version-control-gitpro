@@ -173,3 +173,23 @@
     color: #8c8c8c;
   }
 }
+
+.prompt {
+  &.select-branch {
+    .tile {
+      &:not(:empty) {
+        min-height: 45px;
+        margin: 5px 10px 0 10px;
+      }
+    }
+
+    .tile,
+    .title {
+      justify-content: center;
+    }
+
+    small {
+      color: #adadad;
+    }
+  }
+}

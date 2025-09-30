@@ -53,3 +53,5 @@ type StatusResult = {
 type CollectOidsResult = {
   [filepath: string]: Oid
 }
+
+declare var app: HTMLBodyElement

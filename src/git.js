@@ -1,16 +1,17 @@
 // Copyright (c) [2025] [Diki Djatar]
 // SPDX-License-Identifier: MIT
 
-import { DEFAULT_SETTINGS, STATUS_MAP } from "./constants.js";
+import { STATUS_MAP } from "./constants.js";
 import BaseError, {
-	InvalidResponse,
 	GitError,
+	InvalidResponse,
 	NoRemotesConfigured,
 	RemoteNotFound,
 	ServerUnreachable,
 	StagedDiffersFromHead,
 	WebSocketError
 } from "./errors.js";
+import settings from "./settings.js";
 import { hasStagedDiffersFromHead, runWorkers } from "./utils.js";
 
 class GitService {
@@ -633,5 +634,5 @@ class WebSocketManager {
 	}
 }
 
-const git = new GitService(DEFAULT_SETTINGS.serverUrl);
+const git = new GitService(settings.serverUrl);
 export default git;

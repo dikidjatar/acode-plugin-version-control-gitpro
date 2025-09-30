@@ -1,5 +1,3 @@
-import tag from "html-tag-js";
-import { Icons } from "./constants";
 import git from "./git";
 
 const Url = acode.require('Url');
@@ -69,7 +67,7 @@ function init(app, {
   onStartServerButtonClick
 }) {
   app.classList.add('vcsp');
-  
+
   _onFileListActionButtonClick = onFileListActionButtonClick;
   _onFileClick = onFileClick;
   _onCollapsibleExpand = onCollapsibleExpand;
@@ -122,7 +120,7 @@ function init(app, {
   function setupRepositoryBar() {
     const branchButton = tag('div', {
       className: 'action-button branch-button',
-      innerHTML: `<div>${Icons.GIT_BRANCH}</div>
+      innerHTML: `<div><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg></div>
         <span class="branch-name"></span>
         <span class="branch-symbol"></span>
       `,
@@ -160,7 +158,7 @@ function init(app, {
     });
     $commitBtn = tag('button', {
       className: 'commit-btn',
-      innerHTML: `<div class="icon-check">${Icons.CHECK}</div><span>Commit</span>`,
+      innerHTML: `<div class="icon-check"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M14.4315 3.3232L5.96151 13.3232L5.1708 13.2874L1.8208 8.5174L2.63915 7.94268L5.61697 12.1827L13.6684 2.67688L14.4315 3.3232Z" fill="rgba(223, 223, 223, 1)"/></svg></div><span>Commit</span>`,
       onclick: () => onCommitButtonClick($commitMsg?.value)
     });
     $commitMessageArea.append($commitMsg, $commitBtn);

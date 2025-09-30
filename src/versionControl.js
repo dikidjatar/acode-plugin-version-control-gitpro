@@ -2,11 +2,12 @@
 // SPDX-License-Identifier: MIT
 
 import acodeFileTree from './acodeFileTree';
+import branch from './branch';
 import { confirmDiscardChanges } from './components';
-import { DEFAULT_SETTINGS } from './constants';
 import BaseError, { MultipleFolderSelected, NoFolderSelected, NoRemotesConfigured, RepositoryNotFound } from './errors';
 import git from './git';
 import gitIgnore from './gitIgnore';
+import settings from './settings';
 import sourceControl from './sourceControl';
 import './styles/style.scss';
 import {
@@ -27,19 +28,19 @@ const Loader = acode.require("loader");
 const Prompt = acode.require('prompt');
 const MultiPrompt = acode.require('multiPrompt');
 const fileBrowser = acode.require('fileBrowser');
-const appSettings = acode.require('settings');
 const Url = acode.require('Url');
 const openFolder = acode.require('openFolder');
+const appSettings = acode.require('settings');
 const sidebarApps = acode.require('sidebarApps');
 
 export default class VersionControl {
 
   constructor(plugin) {
     if (!appSettings.value[plugin.id]) {
-      appSettings.value[plugin.id] = DEFAULT_SETTINGS;
+      appSettings.value[plugin.id] = settings.default;
       appSettings.update();
     }
-
+    settings.initialize(appSettings.value[plugin.id], () => appSettings.update());
     this.plugin = plugin;
     this.isLoading = false;
   }
@@ -52,13 +53,17 @@ export default class VersionControl {
       acode.addIcon('vcsp-icon', this.baseUrl + 'assets/source-control.svg');
       acode.addIcon('vcsp-dash', this.baseUrl + 'assets/dash.svg');
       acode.addIcon('vcsp-branch', this.baseUrl + 'assets/git-branch.svg');
+      acode.addIcon('vcsp-remote', this.baseUrl + 'assets/remote.svg');
 
       editorManager.on('remove-folder', this._clearState.bind(this));
       editorManager.on('add-folder', this.gitStatus.bind(this));
       window.addEventListener('click', this.refresh.bind(this));
       this.registerObserveFileTree();
 
-      git.updateServerUrl(this.settings.serverUrl);
+      git.updateServerUrl(settings.serverUrl);
+      appSettings.on(`update:${this.plugin.id}`, (value) => {
+        git.updateServerUrl(value.serverUrl);
+      });
 
       sidebarApps.add(
         'vcsp-icon',
@@ -111,8 +116,8 @@ export default class VersionControl {
         changes: () => this.showChangesMenu(),
         pullPush: () => this.showPullPushMenu(),
         branch: () => this.showBranchMenu(),
-        remote: () => this.gitRemote(),
-        config: () => this.gitConfig()
+        remote: () => this.showRemoteMenu(),
+        config: () => this.showGitConfigMenu()
       }
 
       const handler = commands[command];
@@ -120,7 +125,7 @@ export default class VersionControl {
         await handler();
       }
     } catch (e) {
-      this._handleError(e);
+      this.handleError(e);
     }
   }
 
@@ -191,29 +196,33 @@ export default class VersionControl {
     ]);
 
     const handlers = {
-      create: () => this.gitCreateBranch(),
-      rename: () => this.gitRenameBranch(),
-      delete: () => this.gitDeleteBranch()
+      create: () => branch.createBranch(),
+      rename: () => branch.renameBranch(),
+      delete: () => branch.deleteBranch()
     };
 
     const handler = handlers[option];
     if (handler) {
-      await handler();
+      try {
+        await handler();
+        await this.gitStatus();
+      } catch (error) {
+        this.handleError(error);
+      }
     }
   }
 
   async gitInit() {
     try {
-      const defaultBranch = this.settings.defaultBranchName;
-      await git.init({ defaultBranch });
+      await git.init({ defaultBranch: settings.defaultBranchName });
       await this.gitStatus();
     } catch (error) {
-      this._handleError(error);
+      this.handleError(error);
     }
   }
 
   async gitClone() {
-    const [loader, handlers] = this._createHandlerForLoader('Cloning...');
+    const [loader, handlers] = this.createHandlerForLoader('Cloning...');
     loader?.hide();
     try {
       let data = await MultiPrompt('Clone Configuration', [
@@ -268,14 +277,14 @@ export default class VersionControl {
       await git.clone({ ...options, ...handlers });
       window.toast('Done.', 3000);
     } catch (error) {
-      this._handleError(error);
+      this.handleError(error);
     } finally {
       loader.destroy();
     }
   }
 
   async gitPull(selectRemote = false) {
-    const [loader, handlers] = this._createHandlerForLoader('Pulling...');
+    const [loader, handlers] = this.createHandlerForLoader('Pulling...');
     try {
       const remotes = await git.listRemotes();
       if (remotes.length === 0) {
@@ -300,14 +309,14 @@ export default class VersionControl {
       }
       await this._pull({ remote, remoteRef, ref: branch, ...handlers });
     } catch (error) {
-      this._handleError(error);
+      this.handleError(error);
     } finally {
       loader.destroy();
     }
   }
 
   async gitPush(selectRemote = false) {
-    const [loader, handlers] = this._createHandlerForLoader('Pushing...');
+    const [loader, handlers] = this.createHandlerForLoader('Pushing...');
     try {
       let remotes = await git.listRemotes();
       let hasHead = await git.hasHEAD();
@@ -335,14 +344,14 @@ export default class VersionControl {
       console.log(result);
       window.toast(`[push to '${remote}/${branch}'] Done`)
     } catch (error) {
-      this._handleError(error);
+      this.handleError(error);
     } finally {
       loader.destroy();
     }
   }
 
   async gitFetch(options = {}) {
-    const [loader, handlers] = this._createHandlerForLoader('Fetching...');
+    const [loader, handlers] = this.createHandlerForLoader('Fetching...');
     try {
       const remotes = await git.listRemotes();
       if (remotes.length === 0) {
@@ -363,7 +372,7 @@ export default class VersionControl {
       window.toast(`[fetch from '${selectedRemote}'] Done`, 3000);
       await this.gitStatus();
     } catch (error) {
-      this._handleError(error);
+      this.handleError(error);
     } finally {
       loader.destroy();
     }
@@ -401,10 +410,10 @@ export default class VersionControl {
       if (acodeFileTree.isActive()) {
         const targetNode = this.currentFolder.$node;
         await acodeFileTree.syncWithGit(targetNode);
-        this.processIgnoreFilesForFileTree(targetNode).catch(this._handleError);
+        this.processIgnoreFilesForFileTree(targetNode).catch(this.handleError);
       }
     } catch (error) {
-      this._handleError(error);
+      this.handleError(error);
     } finally {
       this.isLoading = false;
     }
@@ -474,7 +483,7 @@ export default class VersionControl {
 
       sourceControl.setCommitMessage('');
     } catch (error) {
-      this._handleError(error);
+      this.handleError(error);
     } finally {
       this.isLoading = false;
       sourceControl.$commitBtn.disabled = false;
@@ -482,7 +491,20 @@ export default class VersionControl {
     }
   }
 
-  _createHandlerForLoader(message) {
+  async gitCheckout() {
+    if (this.isLoading) return;
+    this.isLoading = true;
+    try {
+      await branch.checkout();
+      await this.gitStatus();
+    } catch (error) {
+      this.handleError(error);
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  createHandlerForLoader(message) {
     /** @type {Loader} */
     const loader = Loader.create('Loading', message);
     const handlers = {
@@ -506,92 +528,6 @@ export default class VersionControl {
       }
     }
     return [loader, handlers];
-  }
-
-  async gitCheckout() {
-    const [loader, handlers] = this._createHandlerForLoader('Checkout...');
-    try {
-      const branches = await git.listBranches();
-      const options = branches.map(b => [b, b, 'vcsp-branch']);
-      options.unshift(['create new branch', 'Create new branch', 'add']);
-
-      loader?.hide();
-      const selectedBranch = await Select('Select a branch to checkout', options);
-      if (selectedBranch === 'create new branch') {
-        await this.gitCreateBranch(true);
-      } else if (selectedBranch) {
-        loader?.show();
-        await git.checkout({ ref: selectedBranch, ...handlers });
-        window.toast(`Checked out to ${selectedBranch}`, 3000);
-        await this.gitStatus();
-      }
-    } catch (error) {
-      if (error.code === 'CheckoutConflictError') {
-        const data = error.data.data;
-        const files = data.filepaths;
-        let message = `
-          <p>Your local changes to the following files would be overwritten by checkout:</p>
-          <div style="margin-left: 20px;">
-            ${files.map(file => `<p><strong>${file}</strong></p>`).join('')}
-          </div>
-          <p>Please commit your changes or stash them before you switch branches.</p>
-        `;
-        Alert(error.code, message);
-        return;
-      }
-      this._handleError(error);
-    } finally {
-      loader.destroy();
-    }
-  }
-
-  async gitCreateBranch(checkout = false) {
-    const branch = await Prompt('Branch name', '', 'text', {
-      required: true,
-      placeholder: 'Please provide a new branch name'
-    });
-    if (!branch) return;
-    await git.createBranch(branch);
-    if (checkout) {
-      await git.checkout({ ref: branch });
-      window.toast(`Checked out to ${branch}`, 3000);
-    }
-    await this.gitStatus();
-  }
-
-  async gitDeleteBranch() {
-    const branches = await git.listBranches();
-    const currentBranch = await git.branch();
-    const options = branches
-      .filter(b => b !== currentBranch)
-      .map(b => [b, b, 'delete']);
-    options.unshift([currentBranch, currentBranch, 'delete', false]);
-    const selectedBranch = await Select('Select a branch to delete', options);
-    if (selectedBranch) {
-      const confirm = await Confirm('WARNING', `Are you sure you want to delete branch '${selectedBranch}'`);
-      if (confirm) {
-        await git.deleteBranch(selectedBranch);
-        window.toast('Done', 3000);
-        await this.gitDeleteBranch();
-      }
-    }
-  }
-
-  async gitRenameBranch() {
-    const currentBranch = await git.branch();
-    const newBranch = await Prompt(
-      'Branch name',
-      currentBranch ? currentBranch : this.settings.defaultBranchName,
-      'text',
-      {
-        required: true,
-        placeholder: 'Please provide a new branch name'
-      }
-    );
-    if (currentBranch && newBranch) {
-      await git.renameBranch(currentBranch, newBranch);
-      await this.gitStatus();
-    }
   }
 
   async addRemote() {
@@ -626,7 +562,7 @@ export default class VersionControl {
       return [remote.remote, `
         <p><strong>${remote.remote}</strong></p>
         <p><i><small>${remote.url}</small></i></p>
-      `];
+      `, 'vcsp-remote'];
     });
     if (extraRemoteOptions.length > 0) {
       remoteOptions.unshift(...extraRemoteOptions);
@@ -634,11 +570,11 @@ export default class VersionControl {
     return await Select(title, remoteOptions);
   }
 
-  async gitRemote() {
+  async showRemoteMenu() {
     try {
       const option = await Select('Remote', [
-        ['add', 'Add Remote'],
-        ['remove', 'Remove Remote'],
+        ['add', 'Add Remote', 'add'],
+        ['remove', 'Remove Remote', 'delete'],
       ]);
       if (option === 'add') {
         await this.addRemote();
@@ -649,12 +585,12 @@ export default class VersionControl {
         }
       }
     } catch (error) {
-      this._handleError(error);
+      this.handleError(error);
     }
   }
 
   async getCredential(url, auth) {
-    let token = this.settings.githubToken;
+    let token = settings.githubToken;
     if (!token) {
       token = await Prompt('Token', '', 'text', {
         required: true,
@@ -666,7 +602,7 @@ export default class VersionControl {
           'Do you want to save the token for future use?'
         );
         if (saveToken) {
-          this.updateSetting('githubToken', token);
+          settings.githubToken = token;
         }
       }
     }
@@ -678,7 +614,7 @@ export default class VersionControl {
    * @param {Event} e 
    */
   async refresh(e) {
-    if (!e.target || !this.settings.autoRefresh) return;
+    if (!e.target || !settings.autoRefresh) return;
     const target = e.target;
     const dataId = target.dataset.id;
     const dataAction = target.dataset.action;
@@ -750,7 +686,7 @@ export default class VersionControl {
           break;
       }
     } catch (error) {
-      this._handleError(error);
+      this.handleError(error);
     }
   }
 
@@ -794,7 +730,7 @@ export default class VersionControl {
         await git.addAll();
       }
     } catch (error) {
-      this._handleError(error);
+      this.handleError(error);
     } finally {
       this.isLoading = false;
       Loader.destroy();
@@ -816,7 +752,7 @@ export default class VersionControl {
         await git.rmCached(filepaths);
       }
     } catch (error) {
-      this._handleError(error);
+      this.handleError(error);
     } finally {
       this.isLoading = false;
       Loader.destroy();
@@ -896,14 +832,14 @@ export default class VersionControl {
       Loader.destroy();
       await this.gitStatus();
     } catch (error) {
-      this._handleError(error);
+      this.handleError(error);
     } finally {
       this.isLoading = false;
       Loader.destroy();
     }
   }
 
-  async gitConfig() {
+  async showGitConfigMenu() {
     try {
       const options = [
         ['setConfig', 'Set Config'],
@@ -930,7 +866,7 @@ export default class VersionControl {
         sourceControl.hide();
       }
     } catch (error) {
-      this._handleError(error);
+      this.handleError(error);
     }
   }
 
@@ -941,8 +877,8 @@ export default class VersionControl {
 
       if (name) return { name, email };
 
-      name = this.settings.gitConfigUsername;
-      email = this.settings.gitConfigUserEmail;
+      name = settings.gitConfigUsername;
+      email = settings.gitConfigUserEmail;
 
       if (!name) {
         const opts = [{ type: 'text', id: 'name', placeholder: 'name', required: true }];
@@ -953,18 +889,15 @@ export default class VersionControl {
         if (!data) return null;
         name = data['name'];
         email = data['email'] || email;
-        this.saveAuthor(name, email);
+
+        settings.gitConfigUsername = name;
+        settings.gitConfigUserEmail = email;
       }
 
       return { name, email };
     } catch (error) {
       return null;
     }
-  }
-
-  saveAuthor(name, email) {
-    if (name) this.updateSetting('gitConfigUsername', name);
-    if (email) this.updateSetting('gitConfigUserEmail', email);
   }
 
   async deleteUntrackedFiles(filepaths) {
@@ -982,7 +915,7 @@ export default class VersionControl {
 
         // Process ignore files for expanded folder
         if (acodeFileTree.isActive()) {
-          this.processIgnoreFilesForFileTree(target).catch(this._handleError);
+          this.processIgnoreFilesForFileTree(target).catch(this.handleError);
         }
       });
       observer.observe(this.currentFolder.$node, {
@@ -1001,7 +934,7 @@ export default class VersionControl {
       const { url, name } = selectedFolder;
       openFolder(url, { name, saveState: true, reloadOnResume: true });
     } catch (e) {
-      this._handleError(e);
+      this.handleError(e);
     }
   }
 
@@ -1022,7 +955,8 @@ export default class VersionControl {
     return folders[0];
   }
 
-  _handleError(error) {
+  handleError(error) {
+    if (!error) return;
     const message = error.message;
     const details = getErrorDetails(error);
 
@@ -1079,86 +1013,16 @@ export default class VersionControl {
     this.registerObserveFileTree();
   }
 
-  get settings() {
-    return appSettings.value[this.plugin.id];
-  }
-
-  updateSetting(key, value) {
-    this.settings[key] = value;
-    appSettings.update();
-  }
-
-  getSettings() {
-    return {
-      list: [
-        {
-          key: 'serverUrl',
-          text: 'Git: Server URL',
-          info: 'URL of the Git server used by this plugin.',
-          value: this.settings.serverUrl,
-          prompt: 'Enter server URL',
-          promptType: 'text',
-          promptOptions: [{ required: true }]
-        },
-        {
-          key: 'autoRefresh',
-          text: 'Git: Autorefresh',
-          checkbox: this.settings.autoRefresh
-        },
-        {
-          key: 'githubToken',
-          text: 'Git: Github Token',
-          info: 'Github token for authentication',
-          value: this.settings.githubToken,
-          prompt: 'Github Token',
-          promptType: 'text',
-          promptOption: [{ require: true }]
-        },
-        {
-          key: 'defaultBranchName',
-          text: 'Git: Default Branch Name',
-          info: 'The name of the default branch when initializing a new Git repository. When set to empty, the default branc name configurd in Git will be used.',
-          value: this.settings.defaultBranchName,
-          prompt: 'Default Branch Name',
-          promptType: 'text'
-        },
-        {
-          key: 'gitConfigUsername',
-          text: 'Git:Config:User: name',
-          info: 'Sets the git config user.name',
-          value: this.settings.gitConfigUsername,
-          prompt: 'Enter username',
-          promptType: 'text',
-          promptOption: [{ require: true }]
-        },
-        {
-          key: 'gitConfigUserEmail',
-          text: 'Git:Config:User: email',
-          info: 'Sets the git config user.email',
-          value: this.settings.gitConfigUserEmail,
-          prompt: 'Enter email',
-          promptType: 'email'
-        }
-      ],
-      cb: async (key, value) => {
-        if (key === 'serverUrl') {
-          git.updateServerUrl(value);
-        }
-        this.updateSetting(key, value);
-      }
-    }
-  }
+  getSettings() { return settings.getSettingObj(); }
 
   async destroy() {
     this._clearState();
     this.$mainStyle.remove();
     sidebarApps.remove('vcsp-sidebar');
 
-    if (this.plugin) {
-      const pluginId = this.plugin.id;
-      appSettings.off(`update:${pluginId}`);
-      delete appSettings.value[pluginId];
-      appSettings.update(false);
-    }
+    const pluginId = this.plugin.id;
+    appSettings.off(`update:${pluginId}`);
+    delete appSettings.value[pluginId];
+    appSettings.update(false);
   }
 }

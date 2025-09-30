@@ -3,13 +3,14 @@
   "id": "acode.plugin.version.control.gitpro",
   "name": "Version Control (Git) Pro",
   "main": "main.js",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "repository": "https://github.com/dikidjatar/acode-plugin-version-control-gitpro.git",
   "icon": "icon.png",
   "files": [
     "assets/source-control.svg",
     "assets/dash.svg",
-    "assets/git-branch.svg"
+    "assets/git-branch.svg",
+    "assets/remote.svg"
   ],
   "minVersionCode": 290,
   "license": "MIT",

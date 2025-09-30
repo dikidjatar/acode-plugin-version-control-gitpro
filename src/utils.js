@@ -5,8 +5,8 @@ import BaseError, { InvalidUri, UnsupportedUri, UriNotAllowed } from "./errors.j
 
 const TERMUX_PREFIX = 'content://com.termux.documents/tree/';
 const ANDROID_EXTERNAL_PREFIX = 'content://com.android.externalstorage.documents/tree/';
-const ACODE_PREFIX = `content://'com.foxdebug.acode.documents/tree/`;
-const ACODE_FREE_PREFIX = `content://'com.foxdebug.acodefree.documents/tree/`;
+const ACODE_PREFIX = `content://com.foxdebug.acode.documents/tree/`;
+const ACODE_FREE_PREFIX = `content://com.foxdebug.acodefree.documents/tree/`;
 const FILE_PREFIX = 'file://';
 const TERMUX_HOME_PREFIX = '/data/data/com.termux/files/home';
 const TERMUX_STORAGE_PREFIX = `${TERMUX_HOME_PREFIX}/storage`;
