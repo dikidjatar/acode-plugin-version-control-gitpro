@@ -54,4 +54,10 @@ type CollectOidsResult = {
   [filepath: string]: Oid
 }
 
-declare var app: HTMLBodyElement
+declare const app: HTMLBodyElement;
+declare const Executor: Executor;
+
+interface Executor {
+  execute(command: string, alpine?: boolean): Promise<string>;
+  start(command: string, onData: (type: string, data: string) => void, alpine?: boolean);
+}

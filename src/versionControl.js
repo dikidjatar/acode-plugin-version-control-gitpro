@@ -9,6 +9,7 @@ import git from './git';
 import gitIgnore from './gitIgnore';
 import settings from './settings';
 import sourceControl from './sourceControl';
+import startServer from './startServer';
 import './styles/style.scss';
 import {
   createCommitTemplate,
@@ -81,7 +82,8 @@ export default class VersionControl {
           onMoreButtonClick: this.showGitCommands.bind(this),
           onOpenFolderButtonClick: this.handleOpenFolder.bind(this),
           onStartServerButtonClick: () => {
-            console.log('Start server...');
+            sourceControl.hide();
+            startServer().catch(console.error);
           }
         })
       );
