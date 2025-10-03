@@ -1,8 +1,10 @@
+import settings from "./settings";
+
 const terminal = acode.require('terminal');
 
 let isStarting = false;
 
-export default async function startServer(host, port) {
+export default async function startServer() {
   if (isStarting) return;
   isStarting = true;
 
@@ -35,7 +37,7 @@ export default async function startServer(host, port) {
     }
 
     log(output.id, 'Verifying git-server installation...');
-    const result = await Executor.execute('npm list -g @dikidjatar/git-server', true);
+    const result = await Executor.execute('npm list -g', true);
     if (result.includes('@dikidjatar/git-server')) {
       log(output.id, 'Git server is already installed');
     } else {
@@ -48,8 +50,8 @@ export default async function startServer(host, port) {
     const server = await terminal.createServer({ name: 'Git server' });
     await wait(1000);
 
-    const serverHost = host || 'localhost';
-    const serverPort = port || 3080;
+    const serverHost = 'localhost';
+    const serverPort = settings.serverPort;
     terminal.write(server.id, `git-server -p ${serverPort} -h ${serverHost} \r\n`);
   } catch (error) {
     const errorMsg = (error instanceof Error) ? error.message : String(error);

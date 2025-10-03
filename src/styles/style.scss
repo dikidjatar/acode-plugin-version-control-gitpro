@@ -17,21 +17,27 @@
     }
   }
 
-  .source-control {
-    width: 100%;
+  .repo-error {
+    padding: 10px;
 
-    .repo-error {
-      padding: 10px;
+    button {
+      width: 100%;
+      padding: 6px;
+      margin-top: 10px;
+      border-radius: 4px;
+      border: none;
+      background-color: var(--button-background-color);
+      color: var(--button-text-color);
+    }
 
-      button {
-        width: 100%;
-        padding: 6px;
-        margin-top: 10px;
-        border-radius: 4px;
-        border: none;
-        background-color: var(--button-background-color);
-        color: var(--button-text-color);
-      }
+    &.hidden {
+      display: none;
+    }
+  }
+
+  .container.source-control {
+    &.hidden {
+      display: none !important;
     }
   }
 
@@ -125,7 +131,7 @@
     }
   }
 
-  .list-files {
+  .container.list {
     .git-status-sym {
       font-size: 1em;
       height: 30px;
@@ -144,12 +150,6 @@
     padding: 1px 2px;
     font-size: 0.9em;
     pointer-events: none;
-  }
-
-  .hide {
-    display: none;
-    pointer-events: none;
-    opacity: 0;
   }
 }
 

@@ -7,7 +7,7 @@ import { confirmDiscardChanges } from './components';
 import BaseError, { MultipleFolderSelected, NoFolderSelected, NoRemotesConfigured, RepositoryNotFound } from './errors';
 import git from './git';
 import gitIgnore from './gitIgnore';
-import settings from './settings';
+import settings, { DEFAULT_SETTINGS } from './settings';
 import sourceControl from './sourceControl';
 import startServer from './startServer';
 import './styles/style.scss';
@@ -16,8 +16,6 @@ import {
   deleteFiles,
   getErrorDetails,
   getModeForFile,
-  isValidUrl,
-  logError,
   openCOMMIT_EDITMSG,
   resolveRepoDir
 } from './utils';
@@ -37,11 +35,11 @@ const sidebarApps = acode.require('sidebarApps');
 export default class VersionControl {
 
   constructor(plugin) {
-    if (!appSettings.value[plugin.id]) {
-      appSettings.value[plugin.id] = settings.default;
+    const values = appSettings.value;
+    if (!values[plugin.id]) {
+      values[plugin.id] = DEFAULT_SETTINGS;
       appSettings.update();
     }
-    settings.initialize(appSettings.value[plugin.id], () => appSettings.update());
     this.plugin = plugin;
     this.isLoading = false;
   }
@@ -61,32 +59,47 @@ export default class VersionControl {
       window.addEventListener('click', this.refresh.bind(this));
       this.registerObserveFileTree();
 
-      git.updateServerUrl(settings.serverUrl);
+      git.updateServerUrl(`http://localhost:${settings.serverPort}`);
       appSettings.on(`update:${this.plugin.id}`, (value) => {
-        git.updateServerUrl(value.serverUrl);
+        git.updateServerUrl(`http://localhost:${value.serverPort}`);
       });
 
       sidebarApps.add(
         'vcsp-icon',
         'vcsp-sidebar',
         'Source Control',
-        (app) => sourceControl.init(app, {
-          onRefreshButtonClick: this.gitStatus.bind(this),
-          onInitButtonClick: this.gitInit.bind(this),
-          onCloneButtonClick: this.gitClone.bind(this),
-          onBranchButtonClick: this.gitCheckout.bind(this),
-          onCollapsibleExpand: this.gitStatus.bind(this),
-          onFileClick: this.handleFileClick.bind(this),
-          onCommitButtonClick: async () => await this.gitCommit(),
-          onFileListActionButtonClick: this.handleFleListAction.bind(this),
-          onMoreButtonClick: this.showGitCommands.bind(this),
-          onOpenFolderButtonClick: this.handleOpenFolder.bind(this),
-          onStartServerButtonClick: () => {
-            sourceControl.hide();
-            startServer().catch(console.error);
-          }
-        })
+        (app) => sourceControl.init(app),
+        false,
+        sourceControl.fixScroll
       );
+
+      sourceControl.$refreshButton.onclick = this.gitStatus.bind(this);
+      sourceControl.$initializeBtn.onclick = this.gitInit.bind(this);
+      sourceControl.$cloneBtn.onclick = this.gitClone.bind(this);
+      sourceControl.$branchBtn.onclick = this.gitCheckout.bind(this);
+      sourceControl.$menuBtn.onclick = this.showGitCommands.bind(this);
+      sourceControl.$commitBtn.onclick = async () => await this.gitCommit();
+      sourceControl.$openFolderBtn.onclick = this.handleOpenFolder.bind(this);
+      sourceControl.$startServerBtn.onclick = () => {
+        sourceControl.hide();
+        startServer();
+      };
+      sourceControl.$stagedList.$ul.onclick =
+        sourceControl.$unstagedList.$ul.onclick =
+        this.handleFileClick.bind(this);
+      sourceControl.$stagedList.$title.addEventListener('click', async () => {
+        if (!sourceControl.$stagedList.collapsed) {
+          await this.gitStatus().catch(this.handleError);
+        }
+      });
+      sourceControl.$unstagedList.$title.addEventListener('click', async () => {
+        if (!sourceControl.$unstagedList.collapsed) {
+          await this.gitStatus().catch(this.handleError);
+        }
+      });
+      sourceControl.$stagedList.$actions.onclick =
+        sourceControl.$unstagedList.$actions.onclick =
+        this.handleFleListAction.bind(this);
     } catch (error) {
       console.log('[Version Control] Error initialize plugin', error)
     }
@@ -94,18 +107,19 @@ export default class VersionControl {
 
   async showGitCommands() {
     try {
+      const tail = () => tag('span', { className: 'icon keyboard_arrow_right' });
       const command = await Select('Git Commands', [
         ['pull', 'Pull'],
         ['push', 'Push'],
         ['clone', 'Clone'],
         ['checkout', 'Checkout to...'],
         ['fetch', 'Fetch'],
-        ['commit', 'Commit', 'keyboard_arrow_right'],
-        ['changes', 'Changes', 'keyboard_arrow_right'],
-        ['pullPush', 'Pull, Push', 'keyboard_arrow_right'],
-        ['branch', 'Branch', 'keyboard_arrow_right'],
-        ['remote', 'Remote', 'keyboard_arrow_right'],
-        ['config', 'Config', 'keyboard_arrow_right']
+        { value: 'commit', text: 'Commit', tailElement: tail() },
+        { value: 'changes', text: 'Changes', tailElement: tail() },
+        { value: 'pullPush', text: 'Pull, Push', tailElement: tail() },
+        { value: 'branch', text: 'Branch', tailElement: tail() },
+        { value: 'remote', text: 'Remote', tailElement: tail() },
+        { value: 'config', text: 'Config', tailElement: tail() }
       ]);
 
       const commands = {
@@ -243,11 +257,6 @@ export default class VersionControl {
         noCheckout = false,
         noTags = false
       } = data;
-
-      if (!isValidUrl(repoUrl)) {
-        Alert('Error', `Invalid URL: ${repoUrl}`);
-        return;
-      }
 
       if (typeof depth === 'string') {
         const trimmed = depth.trim();
@@ -412,7 +421,7 @@ export default class VersionControl {
       if (acodeFileTree.isActive()) {
         const targetNode = this.currentFolder.$node;
         await acodeFileTree.syncWithGit(targetNode);
-        this.processIgnoreFilesForFileTree(targetNode).catch(this.handleError);
+        this.processIgnoreFilesForFileTree(targetNode);
       }
     } catch (error) {
       this.handleError(error);
@@ -611,10 +620,6 @@ export default class VersionControl {
     return { username: token };
   }
 
-  /**
-   * 
-   * @param {Event} e 
-   */
   async refresh(e) {
     if (!e.target || !settings.autoRefresh) return;
     const target = e.target;
@@ -633,39 +638,44 @@ export default class VersionControl {
       if (!this._fileExpandedObserver) {
         this.registerObserveFileTree();
       }
+      sourceControl.fixScroll();
       await this.gitStatus();
     }
   }
 
-  /**
-   * Handle when file click
-   * @param {FileStatus} file 
-   * @param {'staged' | 'unstaged'} from 
-   */
-  async handleFileClick(file, from) {
+  async handleFileClick(e) {
+    const $target = e.target;
+    if (!($target instanceof HTMLElement)) return;
+    const type = $target.dataset.type;
+    if (!type || type !== 'file') return;
+
+    const filepath = $target.dataset.filepath;
+    const action = $target.dataset.action;
+    const isStaged = $target.dataset.staged === 'true';
+    const isUnstaged = $target.dataset.unstaged === 'true';
+
     const actions = [
       ['open-file', 'Open File'],
       ['open-file-head', 'Open File (HEAD)']
     ];
 
-    if (file.isStaged && from === 'staged') {
+    if (isStaged && action === 'staged') {
       actions.push(['unstage', 'Unstage Changes']);
     }
-    if (file.isUnstaged && from === 'unstaged') {
+    if (isUnstaged && action === 'unstaged') {
       actions.push(['stage', 'Stage Changes']);
       actions.push(['discard', 'Discard Changes']);
     }
 
     const options = actions;
-    const action = await Select(file.filepath, options);
+    const option = await Select(filepath, options);
 
-    if (!action) return;
+    if (!option) return;
 
-    const filepath = file.filepath;
     const filepaths = [filepath];
 
     try {
-      switch (action) {
+      switch (option) {
         case 'stage':
           await git.addAll({ filepaths: filepaths });
           await this.gitStatus();
@@ -708,10 +718,13 @@ export default class VersionControl {
     sourceControl.hide();
   }
 
-  /**
-   * @param {'stage-all' | 'unstage-all'} action 
-   */
-  async handleFleListAction(action) {
+  async handleFleListAction(e) {
+    e.stopPropagation();
+    const $target = e.target;
+    if (!$target) return;
+
+    const action = $target.dataset.action;
+
     switch (action) {
       case 'stage-all':
         await this.stageAllChanges();
@@ -917,7 +930,7 @@ export default class VersionControl {
 
         // Process ignore files for expanded folder
         if (acodeFileTree.isActive()) {
-          this.processIgnoreFilesForFileTree(target).catch(this.handleError);
+          this.processIgnoreFilesForFileTree(target);
         }
       });
       observer.observe(this.currentFolder.$node, {
@@ -962,7 +975,10 @@ export default class VersionControl {
     const message = error.message;
     const details = getErrorDetails(error);
 
-    logError(error, details);
+    console.groupCollapsed('[VersionControl] Error');
+    console.error(error);
+    console.log(details);
+    console.groupEnd();
 
     if (error instanceof BaseError) {
       const code = error.code;
@@ -970,8 +986,8 @@ export default class VersionControl {
 
       const errorHandlers = {
         'ServerUnreachable': () => {
-          sourceControl.showRepoError(message),
-            repoError.appendChild(sourceControl.$startServerBtn);
+          sourceControl.showRepoError(message);
+          repoError.appendChild(sourceControl.$startServerBtn);
         },
         'MultipleFolderSelected': () => sourceControl.showRepoError(message),
         'NoFolderSelected': () => {

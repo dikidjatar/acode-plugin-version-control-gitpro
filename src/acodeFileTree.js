@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import git from "./git";
+import settings from "./settings";
 import { resolveRepoDir, runWorkers } from "./utils";
 
 const Url = acode.require('url');
@@ -31,6 +32,11 @@ export default {
  */
 async function sync(targetNode, ignoreStatus = null) {
   pathMap.clear();
+
+  if (!settings.gitDecorations) {
+    clearAllDecorations(targetNode);
+    return;
+  };
 
   const repoDir = git.getRepoDir();
   const filepaths = getVisibleFilePaths(targetNode);
@@ -66,7 +72,7 @@ async function sync(targetNode, ignoreStatus = null) {
 }
 
 async function syncIgnoreOnly(targetNode, ignoreStatus) {
-  if (!ignoreStatus) return;
+  if (!ignoreStatus || !settings.gitDecorations) return;
 
   const repoDir = git.getRepoDir();
 
@@ -317,6 +323,16 @@ function _isParentCollapsed(tile) {
 function clearGitClasses($el) {
   if (!$el) return;
   $el.classList.remove(...GIT_CLASSES);
+}
+
+function clearAllDecorations(targetNode) {
+  const visibleTiles = getVisibleTiles(targetNode);
+  for (const $tile of visibleTiles) {
+    const $text = getTextElement($tile);
+    clearGitClasses($text);
+    const $statusSym = $tile.querySelector(':scope > .git-status-sym');
+    if ($statusSym) $statusSym.remove();
+  }
 }
 
 function isActive() {

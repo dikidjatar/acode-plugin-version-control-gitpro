@@ -241,7 +241,7 @@ function formatTime(timestamp) {
   const now = Date.now();
   const diff = Math.floor((now - timestamp) / 1000);
 
-  if (diff < 45) return `${diff} now`;
+  if (diff < 45) return `now`;
   if (diff < 90) return `1 minute ago`;
   if (diff < 3600) return `${Math.floor(diff / 60)} minutes ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;

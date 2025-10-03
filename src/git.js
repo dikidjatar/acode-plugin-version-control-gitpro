@@ -12,7 +12,7 @@ import BaseError, {
 	WebSocketError
 } from "./errors.js";
 import settings from "./settings.js";
-import { hasStagedDiffersFromHead, runWorkers } from "./utils.js";
+import { runWorkers } from "./utils.js";
 
 class GitService {
 	#serverUrl;
@@ -115,9 +115,9 @@ class GitService {
 		}
 	}
 
-	async #wsOperation(operation, opts = {}) {
+	async #ws(op, opts = {}) {
 		const ws = new WebSocketManager(this.#serverUrl, this.#repoDir);
-		return ws.execute(operation, opts);
+		return ws.execute(op, opts);
 	}
 
 	async isRepo() {
@@ -193,18 +193,14 @@ class GitService {
 			branchSymbol = '*';
 		}
 
-		if (split) {
-			return {
-				staged: stagedFiles,
-				unstaged: unstagedFiles,
-				branchSymbol,
-				totalCount,
-				stagedCount,
-				unstagedCount
-			};
-		}
-
-		return {
+		return split ? {
+			staged: stagedFiles,
+			unstaged: unstagedFiles,
+			branchSymbol,
+			totalCount,
+			stagedCount,
+			unstagedCount
+		} : {
 			files,
 			branchSymbol,
 			totalCount,
@@ -312,7 +308,7 @@ class GitService {
 	}
 
 	async checkout(opts = {}) {
-		return this.#wsOperation('checkout', opts)
+		return this.#ws('checkout', opts)
 	}
 
 	/**
@@ -323,19 +319,19 @@ class GitService {
 	}
 
 	async clone(opts) {
-		await this.#wsOperation('clone', opts);
+		await this.#ws('clone', opts);
 	}
 
 	async push(opts = {}) {
-		return await this.#wsOperation('push', opts);
+		return await this.#ws('push', opts);
 	}
 
 	async pull(opts = {}) {
-		return await this.#wsOperation('pull', opts);
+		return await this.#ws('pull', opts);
 	}
 
 	async fetch(opts = {}) {
-		return await this.#wsOperation('fetch', opts);
+		return await this.#ws('fetch', opts);
 	}
 
 	/**
@@ -426,7 +422,7 @@ class GitService {
 		const oids = await this.collectOids(filepaths);
 
 		const oidEntries = Object.entries(oids);
-		const diffFiles = oidEntries.filter(([, o]) => hasStagedDiffersFromHead(o));
+		const diffFiles = oidEntries.filter(([, o]) => this.hasStagedDiffersFromHead(o));
 		if (diffFiles.length > 0) {
 			throw new StagedDiffersFromHead(diffFiles.map(([fp]) => fp));
 		}
@@ -442,6 +438,16 @@ class GitService {
 			);
 		}
 	}
+
+	hasStagedDiffersFromHead(oids) {
+		const { headOid, workdirOid, stageOid } = oids;
+		if (!stageOid) return false;
+		if (stageOid === headOid || stageOid === workdirOid) {
+			return false;
+		}
+		return true;
+	}
+
 
 	/**
 	 * @param {StatusRow} row
@@ -601,7 +607,7 @@ class WebSocketManager {
 
 	handleDone(data, error) {
 		if (error) {
-			if (typeof error === 'string') error = { message: err };
+			if (typeof error === 'string') error = { message: error };
 			this.complete(new GitError(
 				error.code || 'GIT_OPERATION_FAILED',
 				error.message || `Git ${this.operation} failed`,
@@ -634,5 +640,5 @@ class WebSocketManager {
 	}
 }
 
-const git = new GitService(settings.serverUrl);
+const git = new GitService(`http://localhost:${settings.serverPort}`);
 export default git;

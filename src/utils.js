@@ -12,15 +12,6 @@ const TERMUX_HOME_PREFIX = '/data/data/com.termux/files/home';
 const TERMUX_STORAGE_PREFIX = `${TERMUX_HOME_PREFIX}/storage`;
 const TERMUX_SHARED_PREFIX = `${TERMUX_STORAGE_PREFIX}/shared`;
 
-export function isValidUrl(url) {
-  if (!url || typeof url !== 'string') return false;
-  try { new URL(url); return true; } catch (e) { return false; }
-}
-
-/**
- * @param {string} uri
- * @returns {string} resolved path
- */
 export function resolveRepoDir(uri) {
   if (!uri || typeof uri !== 'string') {
     throw new InvalidUri(uri);
@@ -114,7 +105,8 @@ function resolveFileUri(decodedUri) {
  * @param {string} uri 
  */
 function resolveAcodeUri(uri) {
-  let after = uri.slice(uri.startsWith(ACODE_PREFIX) ? ACODE_PREFIX.length : ACODE_FREE_PREFIX.length);
+  const prefix = uri.startsWith(ACODE_PREFIX) ? ACODE_PREFIX : ACODE_FREE_PREFIX;
+  const after = uri.slice(prefix.length);
   if (!after.includes('::')) {
     throw new UriNotAllowed('acode home directory');
   }
@@ -140,15 +132,19 @@ function parsePrimarySpec(spec) {
  * @returns {Promise<Acode.EditorFile>}
  */
 export function openFileAndAwait(filename, options = {}) {
+  const EditorFile = acode.require('editorFile');
+  const file = new EditorFile(filename, options);
+  file.makeActive();
+
   return new Promise((resolve) => {
-    const EditorFile = acode.require('editorFile');
-    /** @type {Acode.EditorFile} */
-    const file = new EditorFile(filename, options);
-    file.makeActive();
-    file.on('close', e => {
-      file.off('close');
+    const cleanup = () => {
+      file.off('close', onclose);
+    }
+    const onclose = (e) => {
+      cleanup();
       resolve(e.target);
-    });
+    }
+    file.on('close', onclose);
   });
 }
 
@@ -241,15 +237,13 @@ export function createCommitTemplate(statusRows = [], branch = '') {
   return lines.join('\n');
 }
 
-/**
- * parse file: remove comment lines (starting with '#')
- * @param {string} content 
- * @returns {string} 
- */
 function parseCommitMessage(content) {
-  const lines = content.split(/\r?\n/).map(l => l.trim());
-  const contentLines = lines.filter(l => !l.startsWith('#'));
-  return contentLines.join('\n').trim();
+  return content
+    .split(/\r?\n/)
+    .map(l => l.trim())
+    .filter(l => !l.startsWith('#'))
+    .join('\n')
+    .trim();
 }
 
 /**
@@ -283,22 +277,6 @@ export function getErrorDetails(error) {
   }
 }
 
-export function logError(error, details) {
-  console.groupCollapsed('[VersionControl] Error');
-  console.error(error);
-  console.log(details);
-  console.groupEnd();
-}
-
-/**
- * Lightweight concurrency limiter (worker pool).
- * Takes a workCount and an async worker function that receives index.
- * This avoids building large intermediate arrays when processing many files.
- *
- * @param {number} count total items
- * @param {function(number): Promise<any>} worker async fn called with index until all processed
- * @param {number} concurrency max parallel workers
- */
 export async function runWorkers(count, worker, concurrency = 100) {
   const limit = Math.max(1, Math.min(concurrency, count));
   let next = 0;
@@ -318,28 +296,6 @@ export async function runWorkers(count, worker, concurrency = 100) {
   return results;
 }
 
-export function isFileInRepo(repoDir, fileUri) {
-  try {
-    const resolvedPath = resolveRepoDir(fileUri);
-    return resolvedPath.startsWith(repoDir);
-  } catch (error) {
-    return false;
-  }
-}
-
-export function hasStagedDiffersFromHead(oids) {
-  const { headOid, workdirOid, stageOid } = oids;
-  if (!stageOid) return false;
-  if (stageOid === headOid || stageOid === workdirOid) {
-    return false;
-  }
-  return true;
-}
-
-/**
- * Deletes multiple files concurrently with optimized performance
- * @param {Array<string>} filepaths Array of file paths to delete
- */
 export async function deleteFiles(filepaths, batchSize = 10, delay = 10) {
   const fs = acode.require('fs');
   const deletePromises = filepaths.map(async (fp) => {

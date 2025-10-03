@@ -1,83 +1,72 @@
-let appSettings = {};
-let updateFn = null;
+const appSettings = acode.require('settings');
+const pluginId = 'acode.plugin.version.control.gitpro';
 
-const defaultSettings = {
-  serverUrl: 'http://localhost:3080',
+export const DEFAULT_SETTINGS = {
+  serverPort: 3080,
   autoRefresh: true,
   githubToken: '',
   defaultBranchName: 'master',
   gitConfigUsername: '',
-  gitConfigUserEmail: ''
+  gitConfigUserEmail: '',
+  gitDecorations: true
 };
 
-function get(key) {
-  if (appSettings[key] !== undefined) {
-    return appSettings[key];
-  }
-  return defaultSettings[key];
-}
-
-function update(key, value) {
-  appSettings[key] = value;
-  if (updateFn) {
-    updateFn();
-  }
-}
-
 const settings = {
-  default: defaultSettings,
+  get values() { return appSettings.value[pluginId] || DEFAULT_SETTINGS; },
 
-  get serverUrl() {
-    return get('serverUrl');
+  get serverPort() {
+    return this.values.serverPort;
   },
 
   get autoRefresh() {
-    return get('autoRefresh');
+    return this.values.autoRefresh;
   },
 
   get githubToken() {
-    return get('githubToken');
+    return this.values.githubToken;
   },
 
   set githubToken(value) {
-    update('githubToken', value);
+    this.values.githubToken = value;
+    appSettings.update();
   },
 
   get defaultBranchName() {
-    return get('defaultBranchName');
+    return this.values.defaultBranchName;
   },
 
   get gitConfigUsername() {
-    return get('gitConfigUsername');
+    return this.values.gitConfigUsername;
   },
 
   set gitConfigUsername(value) {
-    update('gitConfigUsername', value);
+    this.values.gitConfigUsername = value;
+    appSettings.update();
   },
 
   get gitConfigUserEmail() {
-    return get('gitConfigUserEmail');
+    return this.values.gitConfigUserEmail;
   },
 
   set gitConfigUserEmail(value) {
-    update('gitConfigUserEmail', value);
+    this.values.gitConfigUserEmail = value;
+    appSettings.update();
   },
 
-  initialize(settings, update) {
-    appSettings = settings;
-    updateFn = update;
+  get gitDecorations() {
+    return this.values.gitDecorations;
   },
-  
+
   getSettingObj() {
     return {
       list: [
         {
-          key: 'serverUrl',
-          text: 'Git: Server URL',
-          info: 'URL of the Git server used by this plugin.',
-          value: settings.serverUrl,
-          prompt: 'Enter server URL',
-          promptType: 'text',
+          key: 'serverPort',
+          text: 'Git: Server Port',
+          info: 'Port of the Git server used by this plugin.',
+          value: settings.serverPort,
+          prompt: 'Enter server port',
+          promptType: 'number',
           promptOptions: [{ required: true }]
         },
         {
@@ -118,9 +107,18 @@ const settings = {
           value: settings.gitConfigUserEmail,
           prompt: 'Enter email',
           promptType: 'email'
+        },
+        {
+          key: 'gitDecorations',
+          text: 'Git: Decorations',
+          info: 'Show git colors decorations in file explorer',
+          checkbox: settings.gitDecorations
         }
       ],
-      cb: update
+      cb: (key, value) => {
+        this.values[key] = value;
+        appSettings.update();
+      }
     }
   }
 };
