@@ -32,6 +32,24 @@ const openFolder = acode.require('openFolder');
 const appSettings = acode.require('settings');
 const sidebarApps = acode.require('sidebarApps');
 
+/**
+ * Url.join when the root is an Acode SAF uri may produce an invalid uri. For example:
+ * "content://com.foxdebug.acodefree.documents/tree/%2Fdata%2Fuser%2F0%2Fcom.foxdebug.acodefree%2Ffiles%2Fpublic::/data/user/0/com.foxdebug.acodefree/files/public/Acode-main:/.git"
+ */
+Url.joinSafe = function (...pathnames) {
+  let url = Url.join(...pathnames);
+  
+  if (url.startsWith('content://com.foxdebug.acodefree.documents/tree/')) {
+    const parts = url.split('::');
+    if (parts.length > 1) {
+      // Remove ':' if followed by ':/'
+      url = parts[0] + '::' + parts[1].replace(':/', '/'); 
+    }
+  }
+
+  return url;
+}
+
 export default class VersionControl {
 
   constructor(plugin) {
@@ -271,7 +289,7 @@ export default class VersionControl {
       if (!selectedFolder || selectedFolder.type === 'file') return;
 
       const { url: targetDir } = selectedFolder;
-      const dest = Url.join(targetDir, repoUrl.match(/\/([^\/]+?)(\.git)?$/)?.[1] || '');
+      const dest = Url.joinSafe(targetDir, repoUrl.match(/\/([^\/]+?)(\.git)?$/)?.[1] || '');
       const repoDir = resolveRepoDir(dest);
 
       let options = {
@@ -467,7 +485,7 @@ export default class VersionControl {
       }
 
       if (!message) {
-        const gitDir = Url.join(this.currentFolder.url, '.git');
+        const gitDir = Url.joinSafe(this.currentFolder.url, '.git');
         const branch = await git.branch();
         if (addAll) {
           statusRows = await git.statusMatrix();
@@ -689,7 +707,7 @@ export default class VersionControl {
           break;
         case 'open-file':
           acode.newEditorFile(Url.basename(filepath), {
-            uri: Url.join(this.currentFolder.url, filepath)
+            uri: Url.joinSafe(this.currentFolder.url, filepath)
           });
           sourceControl.hide();
           break;
@@ -876,7 +894,7 @@ export default class VersionControl {
       }
 
       if (configAction === 'openConfigFile') {
-        const uri = Url.join(this.currentFolder.url, '.git/config');
+        const uri = Url.joinSafe(this.currentFolder.url, '.git/config');
         acode.newEditorFile('Config', { editable: true, uri });
         sourceControl.hide();
       }
@@ -917,7 +935,7 @@ export default class VersionControl {
 
   async deleteUntrackedFiles(filepaths) {
     const baseUrl = this.currentFolder.url;
-    const uris = filepaths.map(fp => Url.join(baseUrl, fp));
+    const uris = filepaths.map(fp => Url.joinSafe(baseUrl, fp));
     await deleteFiles(uris, 50, 3);
   }
 
