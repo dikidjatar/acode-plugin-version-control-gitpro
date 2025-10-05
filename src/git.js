@@ -400,7 +400,7 @@ class GitService {
 	}
 
 	/**
-	 * @returns {Promise<string}>}
+	 * @returns {Promise<string>}
 	 */
 	async readFile(opts = {}) {
 		return await this.post('/readFile', opts);

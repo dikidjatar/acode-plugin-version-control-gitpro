@@ -48,12 +48,6 @@ let $initializeBtn;
 /** @type {HTMLButtonElement} */
 let $cloneBtn;
 
-/** @type {HTMLButtonElement} */
-let $openFolderBtn;
-
-/** @type {HTMLButtonElement} */
-let $startServerBtn;
-
 /** @type {HTMLTextAreaElement} */
 let $commitMsg;
 
@@ -92,26 +86,20 @@ function init(app) {
 
   $initializeBtn = tag('button', { innerText: 'Initialize Repository' });
   $cloneBtn = tag('button', { innerText: 'Clone Repository' });
-  $openFolderBtn = tag('button', { innerText: 'Open Folder' });
-  $startServerBtn = tag('button', { innerText: 'Start Server' });
 
   setupHeader();
   setupRepositoryBar();
   setupCommitMsg();
 
-  $sourceControl.append(
-    $repositoryBar,
-    $commitMessageArea,
-    $listFiles
-  );
+  $sourceControl.append($repositoryBar, $commitMessageArea, $listFiles);
   $container.append($header, $repoError, $sourceControl);
 
   function setupHeader() {
-    const title = tag('div', { className: 'title', innerText: 'Version Control' });
+    const title = tag('div', { className: 'title', innerText: 'Source Control' });
     const actions = tag('div', { className: 'actions' });
 
     $refreshButton = tag('span', {
-      className: 'icon replay',
+      className: 'icon replay refresh-button',
       style: { padding: '5px' }
     });
 
@@ -121,7 +109,7 @@ function init(app) {
 
   function setupRepositoryBar() {
     $branchBtn = tag('div', {
-      className: 'action-button branch-button',
+      className: 'branch-button',
       innerHTML: `<div><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg></div>
         <span class="branch-name"></span>
         <span class="branch-symbol"></span>
@@ -245,7 +233,10 @@ function hide() {
   }
 }
 
-function clearState() {
+function clear() {
+  updateBranch('');
+  updateBranchSymbol('');
+  setCommitMessage('');
   $stagedList.clear();
   $unstagedList.clear();
 }
@@ -260,7 +251,7 @@ export default {
   showRepoError,
   isActive,
   hide,
-  clearState,
+  clear,
   fixScroll,
   get $listFiles() { return $listFiles; },
   get $stagedList() { return $stagedList; },
@@ -271,9 +262,7 @@ export default {
   get $menuBtn() { return $menuBtn; },
   get $refreshButton() { return $refreshButton; },
   get $cloneBtn() { return $cloneBtn; },
-  get $initializeBtn() { return $initializeBtn; },
-  get $openFolderBtn() { return $openFolderBtn; },
-  get $startServerBtn() { return $startServerBtn; }
+  get $initializeBtn() { return $initializeBtn; }
 }
 
 class FileList {
@@ -334,7 +323,7 @@ class FileList {
 
   addAction({ action, className } = {}) {
     const btn = tag('span', {
-      className: `action-button ${className ? className : ''}`,
+      className: className ? className : '',
       style: {
         pointerEvents: 'all',
         paddingLeft: '8px',
@@ -478,8 +467,6 @@ class FileList {
 
   clear() {
     this.$ul.innerHTML = '';
-    for (const btn of this.actionButtons.values()) btn.remove();
-    this.actionButtons.clear();
     this.itemMap.clear();
     this.order.length = 0;
   }

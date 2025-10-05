@@ -9,11 +9,15 @@
     align-items: center;
 
     .title {
-      flex: 1;
       padding: 8px 5px;
       padding-left: 8px;
       text-transform: uppercase;
       color: var(--primary-text-color);
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
     }
   }
 
@@ -36,120 +40,117 @@
   }
 
   .container.source-control {
-    &.hidden {
-      display: none !important;
-    }
-  }
 
-  .actions {
-    display: flex;
-    align-items: center;
-  }
-
-  .action-button {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 5px;
-    border: none;
-    border-radius: 50%;
-    cursor: pointer;
-    transition: background-color 0.3s ease, transform 0.3s ease;
-    color: var(--primary-text-color);
-
-    &:active {
-      background-color: var(--active-icon-color);
-    }
-
-    svg {
-      width: 16px;
-      height: 16px;
-    }
-  }
-
-  .vcsp-repo-bar {
-    width: 100%;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    list-style-type: disc;
-    box-sizing: border-box;
-    background-color: rgba(55, 55, 55, 0.8);
-  }
-
-  .branch-button {
-    border-radius: 10%;
-    max-width: 100px;
-
-    .branch-name {
-      overflow-x: hidden;
-      text-overflow: ellipsis;
-    }
-
-    svg {
-      width: 14px;
-      height: 14px;
-    }
-  }
-
-  .commit-area {
-    padding: 8px;
-
-    textarea {
-      border: none;
-      border-radius: 2px;
-      overflow-y: auto;
-      resize: none;
-      max-height: calc(1.5em * 5);
-      line-height: 1.5em;
-    }
-
-    .commit-btn {
+    .vcsp-repo-bar {
       width: 100%;
       display: flex;
-      justify-content: center;
+      justify-content: space-between;
       align-items: center;
-      background-color: var(--button-background-color);
-      color: var(--button-text-color);
-      padding: 6px;
-      border: none;
-      border-radius: 2px;
+      list-style-type: disc;
+      box-sizing: border-box;
+      background-color: rgba(55, 55, 55, 0.8);
 
-      .icon-check {
-        padding-right: 2px;
+      .branch-button {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 5px;
+        border-radius: 10%;
+        max-width: 100px;
+        cursor: pointer;
+        transition: background-color 0.3s ease, transform 0.3s ease;
 
         svg {
           width: 14px;
           height: 14px;
         }
+
+        .branch-name {
+          overflow-x: hidden;
+          text-overflow: ellipsis;
+          color: var(--primary-text-color);
+        }
+
+        &:active {
+          background-color: var(--active-icon-color);
+        }
       }
 
-      &:disabled {
-        cursor: not-allowed;
-        opacity: 0.7;
+      .actions {
+        display: flex;
+        align-items: center;
       }
     }
-  }
 
-  .container.list {
-    .git-status-sym {
-      font-size: 1em;
-      height: 30px;
-      min-width: 30px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
+    .commit-area {
+      padding: 8px;
+
+      textarea#commit-message {
+        border: none;
+        border-radius: 2px;
+        overflow-y: auto;
+        resize: none;
+        max-height: calc(1.5em * 5);
+        line-height: 1.5em;
+      }
+
+      .commit-btn {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: var(--button-background-color);
+        color: var(--button-text-color);
+        padding: 6px;
+        border: none;
+        border-radius: 2px;
+
+        .icon-check {
+          padding-right: 2px;
+
+          svg {
+            width: 14px;
+            height: 14px;
+          }
+        }
+
+        &:disabled {
+          cursor: not-allowed;
+          opacity: 0.7;
+        }
+      }
     }
-  }
 
-  .action-button.file-status-length {
-    cursor: default;
-    background-color: #616161;
-    color: #f8f8f8;
-    border-radius: 10px;
-    padding: 1px 2px;
-    font-size: 0.9em;
-    pointer-events: none;
+    .container.list {
+
+      .actions {
+        display: flex;
+        align-items: center;
+
+        .file-status-length {
+          cursor: default;
+          background-color: #616161;
+          color: #f8f8f8;
+          border-radius: 10px;
+          padding: 1px 2px;
+          font-size: 0.9em;
+          pointer-events: none;
+        }
+      }
+
+      .git-status-sym {
+        font-size: 1em;
+        height: 30px;
+        min-width: 30px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+    }
+
+    &.hidden {
+      display: none !important;
+    }
   }
 }
 

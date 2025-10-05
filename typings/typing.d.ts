@@ -59,5 +59,8 @@ declare const Executor: Executor;
 
 interface Executor {
   execute(command: string, alpine?: boolean): Promise<string>;
-  start(command: string, onData: (type: string, data: string) => void, alpine?: boolean);
+  start(command: string, onData: (type: string, data: string) => void, alpine?: boolean): Promise<string>;
+  isRunning(uuid: string): Promise<boolean>;
+  write(uuid: string, input: string): Promise<void>;
+  stop(uuid: string): Promise<void>;
 }
