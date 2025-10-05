@@ -1,5 +1,16 @@
 # ChangeLog
 
+## [1.3.0] - 2025-10-06
+
+### Background Server and URI Handling Improvements
+- Changes:
+  - Added background server
+  - Server can now run in background
+  - Added server stop option in menu
+  - Fixed invalid URI for Acode SAF uri
+  - Optimized code and UI
+  - Bug fixes
+
 ## [1.2.0] - 2025-10-03
 
 ### Improved Server Integration and UI

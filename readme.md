@@ -2,7 +2,7 @@
 
 A powerful Version Control Git integration plugin for [Acode Editor](https://acode.app) that brings professional version control features directly to your Android device!.
 
-![Version Control](https://img.shields.io/badge/version-1.2.0-blue.svg)
+![Version Control](https://img.shields.io/badge/version-1.3.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-yellow.svg)
 ![Github](https://img.shields.io/badge/open%20source-grey?style=for-the-badge&logo=github)
 
@@ -17,14 +17,14 @@ A powerful Version Control Git integration plugin for [Acode Editor](https://aco
   <img src="https://raw.githubusercontent.com/dikidjatar/acode-plugin-version-control-gitpro/refs/heads/main/screenshot/6.jpg" alt="Git Status Display" width="300"/>
 </div>
 
-## ⚠️ IMPORTANT REQUIREMENTS
+## ⚠️ REQUIREMENTS
 
 ### Prerequisites Required BEFORE Installation
 This plugin requires **Node.js** and a **Git server** to function properly. The plugin **WILL NOT WORK** without these components.
 
 **Git Server Setup:**
 The plugin now includes an automated server management system! Simply:
-1. Click the "Start Server" button in the plugin interface
+1. Click the "Start Server" button in the sidebar
 2. The plugin will automatically:
    - Install the Git server if not present
    - Start the server automatically
