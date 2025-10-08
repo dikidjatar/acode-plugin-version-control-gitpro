@@ -39,7 +39,7 @@ const sidebarApps = acode.require('sidebarApps');
 Url.joinSafe = function (...pathnames) {
   let url = Url.join(...pathnames);
 
-  if (url.startsWith('content://com.foxdebug.acodefree.documents/tree/')) {
+  if (url.startsWith(`content://${BuildInfo.packageName}.documents/tree/`)) {
     const parts = url.split('::');
     if (parts.length > 1) {
       // Remove ':' if followed by ':/'
