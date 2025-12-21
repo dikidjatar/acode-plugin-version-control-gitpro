@@ -1,0 +1,33 @@
+{
+  "$schema": "https://acode.app/schema/plugin/v0.1.0.json",
+  "id": "acode.plugin.version.control.gitpro",
+  "name": "Git SCM",
+  "main": "main.js",
+  "version": "2.0.0",
+  "repository": "https://github.com/dikidjatar/acode-plugin-version-control-gitpro.git",
+  "icon": "icon.png",
+  "files": [
+    "assets/scm.svg",
+    "assets/dash.svg",
+    "assets/branch.svg",
+    "assets/remote.svg",
+    "assets/repo.svg",
+    "assets/sync.svg",
+    "assets/cloud-upload.svg",
+    "assets/tag.svg",
+    "assets/debug-disconnect.svg",
+    "assets/refresh.svg",
+    "assets/loading.svg",
+    "assets/git-commit.svg"
+  ],
+  "minVersionCode": 290,
+  "license": "MIT",
+  "changelogs": "changelogs.md",
+  "keywords": ["Version Control", "Git", "Source Control", "SCM"],
+  "price": 0,
+  "author": {
+    "name": "Diki Djatar",
+    "email": "dikidjatar@gmail.com",
+    "github": "dikidjatar"
+  }
+}

@@ -1,0 +1,16 @@
+NOTICE
+
+This project includes and is partially derived from code and components
+originating from the Visual Studio Code project (Microsoft Corporation),
+which is licensed under the MIT License.
+
+Upstream source:
+https://github.com/microsoft/vscode
+
+Copyright (c) Microsoft Corporation
+
+Derived components and notable inclusions:
+- SCM (Source Control) view architecture
+- Git extension logic and repository model
+- Git parsing and some command handling patterns
+- Portions of folder/file structure and implementation patterns inspired by vscode extensions
