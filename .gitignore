@@ -1,5 +1,6 @@
 /node_modules
 /tests
+/.github
 
 /dist/main.js
 /dist/main.css

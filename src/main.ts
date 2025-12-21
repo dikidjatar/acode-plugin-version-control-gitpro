@@ -1184,11 +1184,6 @@ if (window.acode) {
 		async (baseUrl: string, page, options) => {
 			if (!baseUrl.endsWith('/')) baseUrl += '/';
 
-			//! REMOVE
-			document.head.append(tag('style', { textContent: '#sidebar { width: 100%; }' }));
-			window.IS_FREE_VERSION = false;
-			//! REMOVE
-
 			const git = await initialize(baseUrl, options);
 			acode.define('git', git);
 		},

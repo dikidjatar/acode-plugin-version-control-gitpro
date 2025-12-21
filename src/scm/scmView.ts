@@ -1,18 +1,37 @@
+import { config } from "../base/config";
 import { Disposable, DisposableMap, DisposableStore, IDisposable } from "../base/disposable";
 import { Emitter, Event } from "../base/event";
 import { CollapsableList, IListContextMenuEvent, IListDelegate, IListMouseEvent, IListRenderer } from "../base/list";
-import { config } from "../base/config";
 import { SCMMenuItemAction } from "./menus";
 import { IResourceNode, ResourceTree } from "./resourceTree";
 import { RepositoryRenderer } from "./scmRepositoryRenderer";
-import { ISCMActionButton, ISCMActionButtonDescriptor, ISCMCommandService, ISCMInput, ISCMMenuItemAction, ISCMMenuService, ISCMRepository, ISCMRepositoryMenus, ISCMResource, ISCMResourceGroup, ISCMService, ISCMViewService, ISCMViewVisibleRepositoryChangeEvent, ViewMode } from "./types";
-import { disposableTimeout, isSCMActionButton, isSCMInput, isSCMRepository, isSCMResource, isSCMResourceGroup, isSCMResourceNode, renderLabelWithIcon } from "./utils";
+import { ISCMActionButton, ISCMActionButtonDescriptor, ISCMCommandService, ISCMInput, ISCMMenuItemAction, ISCMMenuService, ISCMRepository, ISCMRepositoryMenus, ISCMResource, ISCMResourceGroup, ISCMSeparator, ISCMService, ISCMViewService, ISCMViewVisibleRepositoryChangeEvent, ViewMode } from "./types";
+import { disposableTimeout, isSCMActionButton, isSCMInput, isSCMRepository, isSCMResource, isSCMResourceGroup, isSCMResourceNode, isSCMSeparator, renderLabelWithIcon } from "./utils";
 import { IView } from "./views";
 
 const selectmenu = acode.require('select');
 const Url = acode.require('Url');
 
-type TreeElement = ISCMRepository | ISCMInput | ISCMActionButton | ISCMResourceGroup | ISCMResource | IResourceNode<ISCMResource, ISCMResourceGroup>;
+type TreeElement = ISCMRepository | ISCMInput | ISCMActionButton | ISCMSeparator | ISCMResourceGroup | ISCMResource | IResourceNode<ISCMResource, ISCMResourceGroup>;
+
+export class SCMSeparatorRenderer implements IListRenderer<ISCMSeparator, void> {
+
+  static readonly TEMPLATE_ID = 'separator';
+  get templateId(): string { return SCMSeparatorRenderer.TEMPLATE_ID; }
+
+  renderTemplate(container: HTMLElement): void {
+    container.classList.add('scm-separator');
+    container.appendChild(tag('div', { className: 'separator' }));
+  }
+
+  renderElement(element: ISCMSeparator, index: number, templateData: void): void {
+
+  }
+
+  disposeTemplate(templateData: void): void {
+
+  }
+}
 
 interface ActionButtonTemplate {
   readonly actionButton: SCMActionButton;
@@ -283,6 +302,8 @@ class ListDelegate implements IListDelegate<TreeElement> {
       return this.inputRenderer.getHeight(element);
     } else if (isSCMActionButton(element)) {
       return ActionButtonRenderer.DEFAULT_HEIGHT + 8;
+    } else if (isSCMSeparator(element)) {
+      return 5;
     } else {
       return 30;
     }
@@ -295,6 +316,8 @@ class ListDelegate implements IListDelegate<TreeElement> {
       return InputRenderer.TEMPLATE_ID;
     } else if (isSCMActionButton(element)) {
       return ActionButtonRenderer.TEMPLATE_ID;
+    } else if (isSCMSeparator(element)) {
+      return SCMSeparatorRenderer.TEMPLATE_ID;
     } else if (isSCMResourceGroup(element)) {
       return ResourceGroupRenderer.TEMPLATE_ID;
     } else if (isSCMResource(element) || isSCMResourceNode(element)) {
@@ -505,6 +528,7 @@ export class SCMView extends Disposable.Disposable implements IView {
         this.inputRenderer,
         this.actionButtonRenderer,
         new RepositoryRenderer(true, this.scmViewService, this.scmCommandService, this.scmMenuService),
+        new SCMSeparatorRenderer(),
         resourceGroupRenderer,
         resourceRenderer
       ],
@@ -618,6 +642,10 @@ export class SCMView extends Disposable.Disposable implements IView {
           elements.push(...this.getTreeElements(group));
         }
       }
+    }
+
+    if (repositoriesCount > 1) {
+      elements.push({ type: 'separator' } as ISCMSeparator);
     }
 
     return elements;

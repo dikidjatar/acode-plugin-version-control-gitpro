@@ -1,6 +1,6 @@
 import { Disposable, DisposableStore, IDisposable } from "../base/disposable";
 import { IResourceNode, ResourceTree } from "./resourceTree";
-import { ISCMActionButton, ISCMInput, ISCMRepository, ISCMResource, ISCMResourceGroup, ISCMViewService } from "./types";
+import { ISCMActionButton, ISCMInput, ISCMRepository, ISCMResource, ISCMResourceGroup, ISCMSeparator, ISCMViewService } from "./types";
 
 export function isSCMViewService(element: unknown): element is ISCMViewService {
 	return Array.isArray((element as ISCMViewService).repositories) && Array.isArray((element as ISCMViewService).visibleRepositories);
@@ -28,6 +28,10 @@ export function isSCMInput(element: unknown): element is ISCMInput {
 
 export function isSCMActionButton(element: unknown): element is ISCMActionButton {
 	return (element as ISCMActionButton).type === 'actionButton';
+}
+
+export function isSCMSeparator(element: unknown): element is ISCMActionButton {
+	return (element as ISCMSeparator).type === 'separator';
 }
 
 export function comparePaths(one: string, other: string): number {

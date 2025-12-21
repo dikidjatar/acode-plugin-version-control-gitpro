@@ -85,6 +85,10 @@ export interface ISCMActionButton {
   readonly buton: ISCMActionButtonDescriptor;
 }
 
+export interface ISCMSeparator {
+  readonly type: 'separator';
+}
+
 export interface ISCMInput {
   readonly repository: ISCMRepository;
 

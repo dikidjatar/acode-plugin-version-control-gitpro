@@ -78,6 +78,19 @@
 
   .tile {
 
+    &.scm-separator {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+
+      .separator {
+        width: 100%;
+        height: 1px;
+        background-color: var(--border-color);
+      }
+    }
+
     &.scm-provider {
       display: flex;
       flex-direction: column;
