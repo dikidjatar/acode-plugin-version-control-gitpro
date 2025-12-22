@@ -8,7 +8,7 @@ import { debounce } from "../base/decorators";
 import { Disposable, IDisposable } from "../base/disposable";
 import { Emitter, Event } from "../base/event";
 import { uriToPath } from "../base/uri";
-import { GitErrorCodes, Status } from "./api/git";
+import { Status } from "./api/git";
 import { AcodeFileDecorationService, FileDecoration, FileDecorationProvider } from "./fileDecorationService";
 import { Model } from "./model";
 import { GitResourceGroup, Repository } from "./repository";
@@ -85,10 +85,6 @@ class GitIgnoreDecorationProvider implements FileDecorationProvider {
           promiseSource.resolve(ignoreSet.has(path) ? GitIgnoreDecorationProvider.Decoration : undefined);
         }
       }, err => {
-        if (err.gitErrorCode !== GitErrorCodes.IsInSubmodule) {
-          console.error(err);
-        }
-
         for (const [, promiseSource] of item.queue.entries()) {
           promiseSource.reject(err);
         }
