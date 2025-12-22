@@ -1217,10 +1217,6 @@ export class Repository {
       args.push(`--depth=${options.depth}`);
     }
 
-    if (options.silent) {
-      spawnOptions.env!['ACODE_GIT_FETCH_SILENT'] = 'true';
-    }
-
     try {
       await this.exec(args);
     } catch (err: any) {
