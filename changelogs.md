@@ -1,5 +1,11 @@
 # ChangeLog
 
+## [2.1.0]
+
+- Added file decoration with Git ignore file
+- Fix auto fetch not working
+- Added "Open In Integrated" menu in scm menu
+
 ## [2.0.0] - 2025-12-21
 ### Rewrite - Native Git Integration
 

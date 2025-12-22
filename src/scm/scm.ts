@@ -1,10 +1,10 @@
 import { App } from '../base/app';
+import { config } from '../base/config';
 import { debounce } from '../base/decorators';
 import { SyncDescriptor } from '../base/descriptor';
 import { Disposable, IDisposable } from '../base/disposable';
 import { Emitter, Event } from '../base/event';
 import { SettingsItems, SettingsPage } from '../base/settingsPage';
-import { config } from '../base/config';
 import { SourceControl, SourceControlActionButton, SourceControlInputBox, SourceControlMenuItem, SourceControlProgess, SourceControlResourceDecorations, SourceControlResourceGroup, SourceControlResourceState, SourceControlViewContainer } from './api/sourceControl';
 import { SCMMenuService } from './scmMenuService';
 import { SCM } from './scmProvider';
@@ -13,8 +13,11 @@ import { SCMService } from './scmService';
 import { SCMView } from './scmView';
 import { SCMViewContainer } from './scmViewContainer';
 import { SCMViewService } from './scmViewService';
-import { IMainSCM, ISCMCommandAction, ISCMCommandService, ISCMMenuItem, ISCMService, SCMArgumentProcessor, SCMMarshalledId, SCMMenuRegistry, SCMRawResource, SCMRawResourceSplice, SCMRawResourceSplices, defualtScmConfig } from './types';
+import { IMainSCM, ISCMCommandAction, ISCMCommandService, ISCMMenuItem, ISCMProvider, ISCMService, SCMArgumentProcessor, SCMMarshalledId, SCMMenuContext, SCMMenuRegistry, SCMRawResource, SCMRawResourceSplice, SCMRawResourceSplices, defualtScmConfig } from './types';
 import { comparePaths } from './utils';
+
+const terminal = acode.require('terminal');
+const Url = acode.require('Url');
 
 type ProviderHandle = number;
 type GroupHandle = number;
@@ -625,6 +628,40 @@ export namespace scm {
     disposables.push(scmViewContainer);
     disposables.push(mainScm);
     disposables.push(scmMenuService);
+
+    editorManager.editor.commands.addCommand({
+      name: 'scm.openInIntegratedTerminal',
+      exec: async (editor: any, providers: ISCMProvider[]) => {
+        if (!Array.isArray(providers) || providers.length !== 1) {
+          return;
+        }
+
+        const provider = providers[0];
+
+        if (!provider.rootUri) {
+          return;
+        }
+
+        if (localStorage.sidebarShown === '1') {
+          acode.exec('toggle-sidebar');
+        }
+
+        const terminalInstance = await terminal.createServer({
+          name: provider.name,
+          serverMode: true
+        });
+
+        setTimeout(() => {
+          terminal.write(terminalInstance.id, `cd "${provider.rootUri}"\n`);
+        }, 500);
+      }
+    })
+
+    SCMMenuRegistry.registerMenuItem('scm/sourceControl', {
+      command: { id: 'scm.openInIntegratedTerminal', title: 'Open in Integrated Terminal' },
+      group: '99_terminal',
+      when: (ctx: SCMMenuContext) => ctx.scmProviderHasRoorUri === true
+    });
 
     const sidebarApps = acode.require('sidebarApps');
     sidebarApps.add(
