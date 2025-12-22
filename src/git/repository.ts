@@ -1,8 +1,8 @@
 import { App } from "../base/app";
+import { config } from "../base/config";
 import { debounce, memoize, throttle } from "../base/decorators";
 import { Disposable, IDisposable } from "../base/disposable";
 import { Emitter, Event } from "../base/event";
-import { config } from "../base/config";
 import { uriToPath } from "../base/uri";
 import { scm } from "../scm";
 import { SourceControl, SourceControlInputBox, SourceControlProgess, SourceControlResourceDecorations, SourceControlResourceGroup, SourceControlResourceState } from "../scm/api/sourceControl";
@@ -18,7 +18,7 @@ import { LogOutputChannel } from "./logger";
 import { Operation, OperationKind, OperationManager, OperationResult } from "./operation";
 import { IPushErrorHandlerRegistry } from "./pushError";
 import { IRemoteSourcePublisherRegistry } from "./remotePublisher";
-import { find, getCommitShortHash, isDescendant, relativePath } from "./utils";
+import { find, getCommitShortHash, isDescendant, relativePath, toFullPath, toShortPath } from "./utils";
 import { IFileWatcher, watch } from "./watch";
 
 const helpers = acode.require('helpers');
@@ -1049,8 +1049,8 @@ export class Repository implements IDisposable {
           return resolve(new Set<string>());
         }
 
-        // https://git-scm.com/docs/git-check-ignore#git-check-ignore--z
-        const process = this.repository.stream(['check-ignore', '-v', '-z', '--stdin']);
+        // https://git-scm.com/docs/git-check-ignore
+        const process = this.repository.stream(['check-ignore', '-v', ...filepaths.map(path => toShortPath(path))]);
 
         const onClose = (exitCode: number) => {
           if (exitCode === 1) {
@@ -1068,7 +1068,7 @@ export class Repository implements IDisposable {
 
         let data = '';
         const onStdoutData = (raw: string) => {
-          data += raw;
+          data += raw + '\0';
         };
 
         process.stdout!.on('data', onStdoutData);
@@ -1082,21 +1082,17 @@ export class Repository implements IDisposable {
     });
   }
 
-  // Parses output of `git check-ignore -v -z` and returns only those paths
-  // that are actually ignored by git.
-  // Matches to a negative pattern (starting with '!') are filtered out.
-  // See also https://git-scm.com/docs/git-check-ignore#_output.
   private parseIgnoreCheck(raw: string): string[] {
     const ignored = [];
-    const elements = raw.split('\0');
-    for (let i = 0; i < elements.length; i += 4) {
-      const pattern = elements[i + 2];
-      const path = elements[i + 3];
+    const elements = raw.split('\0').flatMap(r => r.split('\t'));
+    for (let i = 0; i < elements.length; i += 2) {
+      const pattern = elements[i];
+      const path = elements[i + 1];
       if (pattern && !pattern.startsWith('!')) {
         ignored.push(path);
       }
     }
-    return ignored;
+    return ignored.map(path => toFullPath(path));
   }
 
   private async _push(remote?: string, refspec?: string, setUpstream = false, followTags = false, forcePushMode?: ForcePushMode, tags = false): Promise<void> {

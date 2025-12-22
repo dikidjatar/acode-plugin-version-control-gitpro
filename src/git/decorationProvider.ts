@@ -3,15 +3,104 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { config } from "../base/config";
+import { debounce } from "../base/decorators";
 import { Disposable, IDisposable } from "../base/disposable";
 import { Emitter, Event } from "../base/event";
-import { config } from "../base/config";
-import { Status } from "./api/git";
-import { FileDecoration, FileDecorationProvider, registerFileDecorationProvider } from "./fileDecorationService";
+import { uriToPath } from "../base/uri";
+import { GitErrorCodes, Status } from "./api/git";
+import { AcodeFileDecorationService, FileDecoration, FileDecorationProvider } from "./fileDecorationService";
 import { Model } from "./model";
 import { GitResourceGroup, Repository } from "./repository";
+import { PromiseSource } from "./utils";
 
 const Url = acode.require('Url');
+
+class GitIgnoreDecorationProvider implements FileDecorationProvider {
+
+  private static Decoration: FileDecoration = { color: '#8C8C8C' };
+
+  private readonly _onDidChangeDecorations = new Emitter<string[]>();
+  readonly onDidChangeFileDecorations: Event<string[]> = this._onDidChangeDecorations.event;
+
+  private queue = new Map<string, { repository: Repository; queue: Map<string, PromiseSource<FileDecoration | undefined>> }>();
+  private disposables: IDisposable[] = [];;
+
+  constructor(
+    private model: Model,
+    decorationService: AcodeFileDecorationService
+  ) {
+    const onDidChangeRepository = Event.any<any>(
+      model.onDidOpenRepository,
+      model.onDidCloseRepository
+    );
+
+    const onSaveFile = (file: Acode.EditorFile) => {
+      if (/\.gitignore$|\.git\/info\/exclude$/.test(uriToPath(file.uri))) {
+        this._onDidChangeDecorations.fire([]);
+      }
+    }
+    editorManager.on('save-file', onSaveFile);
+
+    this.disposables.push(onDidChangeRepository(() => this._onDidChangeDecorations.fire([])));
+    this.disposables.push(Disposable.toDisposable(() => editorManager.off('save-file', onSaveFile)));
+    this.disposables.push(decorationService.registerFileDecorationProvider(this));
+  }
+
+  async provideFileDecoration(path: string): Promise<FileDecoration | undefined> {
+    const repository = this.model.getRepository(path);
+
+    if (!repository) {
+      return;
+    }
+
+    let queueItem = this.queue.get(repository.root);
+
+    if (!queueItem) {
+      queueItem = { repository, queue: new Map<string, PromiseSource<FileDecoration | undefined>>() };
+      this.queue.set(repository.root, queueItem);
+    }
+
+    let promiseSource = queueItem.queue.get(path);
+
+    if (!promiseSource) {
+      promiseSource = new PromiseSource();
+      queueItem!.queue.set(path, promiseSource);
+      this.checkIgnoreSoon();
+    }
+
+    return await promiseSource.promise;
+  }
+
+  @debounce(500)
+  private checkIgnoreSoon(): void {
+    const queue = new Map(this.queue.entries());
+    this.queue.clear();
+
+    for (const [, item] of queue) {
+      const paths = [...item.queue.keys()];
+
+      item.repository.checkIgnore(paths).then(ignoreSet => {
+        for (const [path, promiseSource] of item.queue.entries()) {
+          promiseSource.resolve(ignoreSet.has(path) ? GitIgnoreDecorationProvider.Decoration : undefined);
+        }
+      }, err => {
+        if (err.gitErrorCode !== GitErrorCodes.IsInSubmodule) {
+          console.error(err);
+        }
+
+        for (const [, promiseSource] of item.queue.entries()) {
+          promiseSource.reject(err);
+        }
+      });
+    }
+  }
+
+  dispose(): void {
+    this.disposables.forEach(d => d.dispose());
+    this.queue.clear();
+  }
+}
 
 class GitDecorationProvider implements FileDecorationProvider {
 
@@ -26,9 +115,12 @@ class GitDecorationProvider implements FileDecorationProvider {
   private disposables: IDisposable[] = [];
   private decorations = new Map<string, FileDecoration>();
 
-  constructor(private repository: Repository) {
+  constructor(
+    private repository: Repository,
+    decorationService: AcodeFileDecorationService
+  ) {
     this.disposables.push(
-      registerFileDecorationProvider(this),
+      decorationService.registerFileDecorationProvider(this),
       Event.runAndSubscribe(repository.onDidRunGitStatus, () => this.onDidRunGitStatus())
     );
   }
@@ -83,7 +175,12 @@ export class GitDecorations {
   private modelDisposables: IDisposable[] = [];
   private providers = new Map<Repository, IDisposable>();
 
-  constructor(private model: Model) {
+  constructor(
+    private model: Model,
+    private decorationService: AcodeFileDecorationService
+  ) {
+    this.disposables.push(new GitIgnoreDecorationProvider(model, decorationService));
+
     const onEnablementChange = Event.filter(config.onDidChangeConfiguration, e => e.affectsConfiguration('vcgit.decorationsEnabled'));
     onEnablementChange(this.update, this, this.disposables);
     this.update();
@@ -118,7 +215,7 @@ export class GitDecorations {
   }
 
   private onDidOpenRepository(repository: Repository): void {
-    this.providers.set(repository, new GitDecorationProvider(repository));
+    this.providers.set(repository, new GitDecorationProvider(repository, this.decorationService));
   }
 
   private onDidCloseRepository(repository: Repository): void {

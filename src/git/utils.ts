@@ -1,4 +1,5 @@
 import { config } from '../base/config';
+import { Emitter, Event } from '../base/event';
 import { isUri } from '../base/uri';
 
 const ACODE_TERMINAL_FILES = '/data/user/0/com.foxdebug.acodefree/files';
@@ -140,6 +141,15 @@ export function toFullPath(path: string): string {
 	return path;
 }
 
+export function toShortPath(path: string): string {
+	if (path.startsWith(ACODE_TERMINAL_FILES + '/alpine/home/')) {
+		return path.slice((ACODE_TERMINAL_FILES + '/alpine').length);
+	} else if (path.startsWith(ACODE_TERMINAL_FILES + '/public')) {
+		return path.slice(ACODE_TERMINAL_FILES.length);
+	}
+	return path;
+}
+
 export function groupBy<T>(arr: T[], fn: (el: T) => string): { [key: string]: T[] } {
 	return arr.reduce((result, el) => {
 		const key = fn(el);
@@ -166,6 +176,42 @@ export function find<T>(array: T[], fn: (t: T) => boolean): T | undefined {
 export async function grep(filename: string, pattern: RegExp): Promise<boolean> {
 	const text = await fs(!isUri(filename) ? `file://${filename}` : filename).readFile('utf-8');
 	return pattern.test(text);
+}
+
+type Completion<T> = { success: true; value: T } | { success: false; err: any };
+
+export class PromiseSource<T> {
+
+	private _onDidComplete = new Emitter<Completion<T>>();
+
+	private _promise: Promise<T> | undefined;
+	get promise(): Promise<T> {
+		if (this._promise) {
+			return this._promise;
+		}
+
+		return Event.toPromise(this._onDidComplete.event).then(completion => {
+			if (completion.success) {
+				return completion.value;
+			} else {
+				throw completion.err;
+			}
+		});
+	}
+
+	resolve(value: T): void {
+		if (!this._promise) {
+			this._promise = Promise.resolve(value);
+			this._onDidComplete.fire({ success: true, value });
+		}
+	}
+
+	reject(err: any): void {
+		if (!this._promise) {
+			this._promise = Promise.reject(err);
+			this._onDidComplete.fire({ success: false, err });
+		}
+	}
 }
 
 export function* splitInChunks(array: string[], maxChunkLength: number): IterableIterator<string[]> {

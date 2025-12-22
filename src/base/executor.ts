@@ -155,6 +155,7 @@ class AcodeProcess implements Process {
   };
 
   private _listeners: Map<string, Set<Function>> = new Map();
+  private _writeQueue: Array<{ data: string; resolve: () => void; reject: (err: Error) => void }> = [];
 
   constructor(
     private command: string,
@@ -209,6 +210,8 @@ class AcodeProcess implements Process {
         },
         this.options.alpine ?? false
       );
+
+      await this._flushWriteQueue();
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       this._emit('error', error);
@@ -256,7 +259,13 @@ class AcodeProcess implements Process {
 
   async write(data: string): Promise<void> {
     try {
-      if (!this._pid || !(await this.isRunning())) {
+      if (!this._pid) {
+        return new Promise<void>((resolve, reject) => {
+          this._writeQueue.push({ data, resolve, reject });
+        });
+      }
+
+      if (!await this.isRunning()) {
         throw new Error('Process not started');
       }
       await Executor.write(this._pid, data);
@@ -264,6 +273,25 @@ class AcodeProcess implements Process {
       const error = err instanceof Error ? err : new Error(String(err));
       this._emit('error', error);
       throw error;
+    }
+  }
+
+  private async _flushWriteQueue(): Promise<void> {
+    if (this._writeQueue.length === 0) {
+      return;
+    }
+
+    const queue = [...this._writeQueue];
+    this._writeQueue = [];
+
+    for (const item of queue) {
+      try {
+        await Executor.write(this._pid!, item.data);
+        item.resolve();
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        item.reject(error);
+      }
     }
   }
 

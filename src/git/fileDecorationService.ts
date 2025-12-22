@@ -17,12 +17,12 @@ export class FileDecoration {
   }
 }
 
-export interface FileDecorationProvider {
+export interface FileDecorationProvider extends IDisposable {
   onDidChangeFileDecorations?: Event<string[]>;
-  provideFileDecoration(uri: string): FileDecoration | undefined;
+  provideFileDecoration(uri: string): FileDecoration | undefined | Promise<FileDecoration | undefined>;
 }
 
-class AcodeFileDecorationService {
+export class AcodeFileDecorationService {
 
   private providers: Set<FileDecorationProvider> = new Set();
   private container: HTMLElement | undefined;
@@ -37,7 +37,7 @@ class AcodeFileDecorationService {
 
           if (target instanceof HTMLElement) {
             if (target.classList.contains('collapsible')) {
-              this.processNode(target);
+              setTimeout(() => this.processNode(target), 100);
             }
           }
         }
@@ -53,7 +53,7 @@ class AcodeFileDecorationService {
     }
   }
 
-  register(provider: FileDecorationProvider): IDisposable {
+  registerFileDecorationProvider(provider: FileDecorationProvider): IDisposable {
     const disposable = new DisposableStore();
     this.providers.add(provider);
     provider.onDidChangeFileDecorations?.(this.refresh, this, disposable);
@@ -76,16 +76,13 @@ class AcodeFileDecorationService {
     this.processNode(this.container);
   }
 
-  private async processNode(node: HTMLElement): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 100));
-
+  private processNode(node: HTMLElement): void {
     const elements = Array.from(node.querySelectorAll('.tile[data-url]')) as HTMLElement[];
+    elements.forEach(element => this.clearDecoration(element));
     elements.forEach(element => this.applyDecoration(element));
   }
 
   private applyDecoration(element: HTMLElement) {
-    this.clearDecoration(element);
-
     const url = element.dataset.url;
 
     if (!url) {
@@ -95,14 +92,22 @@ class AcodeFileDecorationService {
     const path = uriToPath(url);
 
     for (const provider of this.providers) {
-      const decoration = provider.provideFileDecoration(path);
+      const updateDecoration = (decoration: FileDecoration | undefined) => {
+        if (!decoration) {
+          return;
+        }
 
-      if (!decoration) {
-        continue;
+        if (decoration.propagate !== false) {
+          this.renderFileDecoration(element, decoration);
+        }
       }
 
-      if (decoration.propagate !== false) {
-        this.renderFileDecoration(element, decoration);
+      const result = provider.provideFileDecoration(path);
+
+      if (result instanceof Promise) {
+        result.then(updateDecoration);
+      } else {
+        updateDecoration(result);
       }
     }
   }
@@ -121,19 +126,19 @@ class AcodeFileDecorationService {
       }
     });
 
-    if (decoration.badge) {
-      badge.textContent = decoration.badge;
-    }
-
     if (decoration.color) {
       badge.style.color = decoration.color;
       text.style.color = decoration.color;
     }
 
-    if (text.nextSibling) {
-      element.insertBefore(badge, text.nextSibling);
-    } else {
-      element.appendChild(badge);
+    if (decoration.badge) {
+      badge.textContent = decoration.badge;
+
+      if (text.nextSibling) {
+        element.insertBefore(badge, text.nextSibling);
+      } else {
+        element.appendChild(badge);
+      }
     }
   }
 
@@ -141,16 +146,17 @@ class AcodeFileDecorationService {
     const text = element.querySelector('.text') as HTMLElement;
     const badge = element.querySelector('.badge');
 
-    text.style.color = 'var(--primary-text-color)';
+    if (text) {
+      text.style.color = 'var(--primary-text-color)';
+    }
 
     if (badge) {
       badge.remove();
     }
   }
-}
 
-const service = new AcodeFileDecorationService();
-
-export function registerFileDecorationProvider(provider: FileDecorationProvider): IDisposable {
-  return service.register(provider);
+  dispose(): void {
+    this.observer.disconnect();
+    this.providers.forEach(provider => provider.dispose());
+  }
 }

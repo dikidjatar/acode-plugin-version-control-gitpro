@@ -957,7 +957,6 @@ export class Repository {
     const options: SpawnOptions = {};
 
     if (message) {
-      // options.input = message; // Error SpawnOptions tidak memiliki .input (Apakah bisa dibuat?)
       args.push('-m', message);
     }
 

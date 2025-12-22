@@ -1,12 +1,13 @@
+import plugin from '../plugin.json';
 import { App } from './base/app';
+import { config } from './base/config';
 import { Disposable, IDisposable } from './base/disposable';
 import { Event } from './base/event';
-import plugin from '../plugin.json';
-import { config } from './base/config';
 import { GitPluginImpl } from './git/api/plugin';
 import { AskPass } from './git/askpass';
 import { CommandCenter } from './git/commands';
 import { GitDecorations } from './git/decorationProvider';
+import { AcodeFileDecorationService } from './git/fileDecorationService';
 import { findGit, Git, IGit } from './git/git';
 import { GitEditor } from './git/gitEditor';
 import { createIPCServer, IIPCServer } from './git/ipc/ipcServer';
@@ -155,8 +156,10 @@ async function createModel(logger: LogOutputChannel, disposables: IDisposable[])
 		logger.info(lines.join('\n'));
 	}, git, disposables);
 
+	const decorationServics = new AcodeFileDecorationService();
+	disposables.push(decorationServics);
 	disposables.push(new CommandCenter(git, model, logger));
-	disposables.push(new GitDecorations(model));
+	disposables.push(new GitDecorations(model, decorationServics));
 
 	checkGitVersion(info);
 
