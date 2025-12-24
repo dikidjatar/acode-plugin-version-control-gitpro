@@ -242,6 +242,8 @@ async function initialize(baseUrl: string, options: Acode.PluginInitOptions): Pr
 	const logger = new LogOutputChannel('Git');
 	disposables.push(logger);
 
+	initializeMenus(logger);
+
 	const gitConfig = config.get('vcgit');
 	const enabled = gitConfig!.enabled;
 
@@ -255,7 +257,6 @@ async function initialize(baseUrl: string, options: Acode.PluginInitOptions): Pr
 
 	try {
 		const model = await createModel(logger, disposables);
-		initializeMenus(logger);
 		return new GitPluginImpl(model);
 	} catch (err: any) {
 		console.warn(err.message);
