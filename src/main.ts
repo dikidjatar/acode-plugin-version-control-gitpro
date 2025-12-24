@@ -229,14 +229,15 @@ async function initialize(baseUrl: string, options: Acode.PluginInitOptions): Pr
 	document.head.appendChild(styles);
 	disposables.push(Disposable.toDisposable(() => styles.remove()));
 
-	await setupDirectory();
-
 	const scmViewContainer = scm.getViewContainer();
 	initializeViews(scmViewContainer);
 
 	if (!await Terminal.isInstalled()) {
-		//TODO:
+		App.setContext('acode.terminalMissing', true);
+		return new GitPluginImpl();
 	}
+
+	await setupDirectory();
 
 	const logger = new LogOutputChannel('Git');
 	disposables.push(logger);
@@ -303,13 +304,19 @@ function checkGitVersion(info: IGit): void {
 
 function initializeViews(scmViewContainer: SourceControlViewContainer): void {
 	scmViewContainer.registerViewWelcomeContent({
+		content: 'Acode Terminal is not installed. Please install Acode Terminal first to use the Git feature.',
+		when: () => App.getContext<boolean>('acode.terminalMissing') === true
+	});
+
+	scmViewContainer.registerViewWelcomeContent({
 		content: 'If you would like to use Git features, please enable Git in your [settings](setting:plugin-acode.plugin.version.control.gitpro?%5B%22enabled%22%5D)',
-		when: () => config.get('vcgit')?.enabled === false
+		when: () => !App.getContext('acode.terminalMissing') && config.get('vcgit')?.enabled === false
 	});
 
 	scmViewContainer.registerViewWelcomeContent({
 		content: 'In order to use Git features, you can open a folder containing a Git repository or clone from a URL.\n[Open Folder](command:openFolder)\n[Clone Repository](command:git.cloneRecursive)\nTo learn more about how to use Git and source control in Acode [read our docs](https://github.com/dikidjatar/acode-plugin-version-control-gitpro#README).',
 		when: () => config.get('vcgit')?.enabled === true
+			&& !App.getContext<boolean>('acode.terminalMissing')
 			&& !App.getContext<boolean>('git.missing')
 			&& App.getContext<number>('addedFolderCount', addedFolder.length) === 0
 			&& App.getContext<number>('git.closedRepositoryCount') === 0
@@ -318,6 +325,7 @@ function initializeViews(scmViewContainer: SourceControlViewContainer): void {
 	scmViewContainer.registerViewWelcomeContent({
 		content: 'Scaning folder for Git repositories...',
 		when: () => config.get('vcgit')?.enabled === true
+			&& !App.getContext<boolean>('acode.terminalMissing')
 			&& !App.getContext<boolean>('git.missing')
 			&& App.getContext<number>('addedFolderCount', addedFolder.length) !== 0
 			&& App.getContext<'initialized' | 'uninitialized'>('git.state') !== 'initialized'
@@ -325,12 +333,15 @@ function initializeViews(scmViewContainer: SourceControlViewContainer): void {
 
 	scmViewContainer.registerViewWelcomeContent({
 		content: 'Install Git, a popular source control system, to track code changes and collaborate with others. Learn more in our [Git guides](https://github.com/dikidjatar/acode-plugin-version-control-gitpro#README).',
-		when: () => config.get('vcgit')?.enabled === true && App.getContext<boolean>('git.missing') === true
+		when: () => config.get('vcgit')?.enabled === true
+			&& !App.getContext<boolean>('acode.terminalMissing')
+			&& App.getContext<boolean>('git.missing') === true
 	});
 
 	scmViewContainer.registerViewWelcomeContent({
 		content: "The folder currently open doesn't have a Git repository. You can initialize a repository which will enable source control features powered by Git.\n[Initialize Repository](command:git.init?%5Btrue%5D)\nTo learn more about how to use Git and source control in Acode [read our docs](https://github.com/dikidjatar/acode-plugin-version-control-gitpro#README).",
 		when: () => config.get('vcgit')?.enabled === true
+			&& !App.getContext<boolean>('acode.terminalMissing')
 			&& !App.getContext<boolean>('git.missing')
 			&& App.getContext<'initialized' | 'uninitialized'>('git.state') === 'initialized'
 			&& App.getContext<number>('addedFolderCount', addedFolder.length) !== 0
