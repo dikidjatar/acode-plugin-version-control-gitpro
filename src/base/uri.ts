@@ -16,7 +16,7 @@ export function uriToPath(uri: unknown): string {
   }
 
   if (uri.startsWith(ANDROID_EXTERNAL_STORAGE_DOCUMENT_URI)) {
-    const after = uri.slice(ANDROID_EXTERNAL_STORAGE_DOCUMENT_URI.length);
+    const after = decodeURIComponent(uri.slice(ANDROID_EXTERNAL_STORAGE_DOCUMENT_URI.length));
     const parts = after.split('::');
 
     const rootName = parsePrimarySpec(parts[0]);
