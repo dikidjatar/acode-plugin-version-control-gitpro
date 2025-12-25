@@ -3,7 +3,7 @@
   "id": "acode.plugin.version.control.gitpro",
   "name": "Git SCM",
   "main": "main.js",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "repository": "https://github.com/dikidjatar/acode-plugin-version-control-gitpro.git",
   "icon": "icon.png",
   "files": [

@@ -1,6 +1,6 @@
 {
   "name": "acode.plugin.version.control.gitpro",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Plugin for Acode to provide Git SCM features",
   "main": "dist/main.js",
   "repository": "https://github.com/dikidjatar/acode-plugin-version-control-gitpro",

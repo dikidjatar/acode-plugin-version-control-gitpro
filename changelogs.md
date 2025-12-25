@@ -1,5 +1,10 @@
 # ChangeLog
 
+## [2.1.1]
+
+- Fix invalid Android external root folder
+- Fixed SCM secondary menu not appearing when git.enabled setting is enabled.
+
 ## [2.1.0]
 
 - Added file decoration with Git ignore file
