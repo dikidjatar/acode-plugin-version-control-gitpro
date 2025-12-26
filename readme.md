@@ -35,13 +35,6 @@
 > Alpine Linux ships with **Dropbear SSH** by default, which conflicts with OpenSSH and causes Git authentication issues.
 > This plugin requires **OpenSSH** for full compatibility.
 
-Remove Dropbear and install OpenSSH:
-
-```bash
-apk del dropbear dropbear-ssh
-apk add openssh
-```
-
 After installation, generate and configure your SSH keys normally.
 
 ### Optional (Recommended)
