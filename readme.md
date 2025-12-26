@@ -29,6 +29,13 @@
    ```bash
    apk add git
    ```
+   
+### SSH (Required for GitHub / SSH remotes)
+
+> Alpine Linux ships with **Dropbear SSH** by default, which conflicts with OpenSSH and causes Git authentication issues.
+> This plugin requires **OpenSSH** for full compatibility.
+
+After installation, generate and configure your SSH keys normally.
 
 ### Optional (Recommended)
 
