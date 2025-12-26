@@ -32,7 +32,6 @@
    
 ### SSH (Required for GitHub / SSH remotes)
 
-> **Important (Alpine / Acode users)**
 > Alpine Linux ships with **Dropbear SSH** by default, which conflicts with OpenSSH and causes Git authentication issues.
 > This plugin requires **OpenSSH** for full compatibility.
 
