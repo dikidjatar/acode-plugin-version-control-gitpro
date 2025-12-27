@@ -4,6 +4,10 @@ declare const Terminal: Terminal;
 declare const Executor: Executor;
 declare const system: any;
 
+interface Acode {
+  addIcon(iconName: string, iconSrc: string, options: { monochrome: boolean }): void;
+}
+
 interface Terminal {
   isInstalled(): Promise<boolean>;
 }

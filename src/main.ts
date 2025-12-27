@@ -218,13 +218,13 @@ async function initialize(baseUrl: string, options: Acode.PluginInitOptions): Pr
 	await config.init('vcgit', defaultGitConfig);
 	disposables.push(config);
 
-	acode.addIcon('branch', baseUrl + 'assets/branch.svg');
-	acode.addIcon('sync', baseUrl + 'assets/sync.svg');
-	acode.addIcon('cloud-upload', baseUrl + 'assets/cloud-upload.svg');
-	acode.addIcon('debug-disconnect', baseUrl + 'assets/debug-disconnect.svg');
-	acode.addIcon('tag', baseUrl + 'assets/tag.svg');
-	acode.addIcon('loading', baseUrl + 'assets/loading.svg');
-	acode.addIcon('git-commit', baseUrl + 'assets/git-commit.svg');
+	acode.addIcon('branch', baseUrl + 'assets/branch.svg', { monochrome: true });
+	acode.addIcon('sync', baseUrl + 'assets/sync.svg', { monochrome: true });
+	acode.addIcon('cloud-upload', baseUrl + 'assets/cloud-upload.svg', { monochrome: true });
+	acode.addIcon('debug-disconnect', baseUrl + 'assets/debug-disconnect.svg', { monochrome: true });
+	acode.addIcon('tag', baseUrl + 'assets/tag.svg', { monochrome: true });
+	acode.addIcon('loading', baseUrl + 'assets/loading.svg', { monochrome: true });
+	acode.addIcon('git-commit', baseUrl + 'assets/git-commit.svg', { monochrome: true });
 	const styles = tag('link', { rel: 'stylesheet', href: baseUrl + 'main.css' });
 	document.head.appendChild(styles);
 	disposables.push(Disposable.toDisposable(() => styles.remove()));
