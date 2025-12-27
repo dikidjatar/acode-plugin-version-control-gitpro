@@ -196,10 +196,10 @@ class SyncCommandAction {
           text += this.repository.syncLabel;
         }
 
-        command = 'sync';
+        command = 'git.sync';
       } else {
         icon = 'cloud-upload';
-        command = 'publish';
+        command = 'git.publish';
       }
     } else {
       command = '';
