@@ -1,11 +1,11 @@
+import { config, ConfigurationChangeEvent } from "../base/config";
 import { Disposable, IDisposable } from "../base/disposable";
 import { Emitter, Event } from "../base/event";
-import { config, ConfigurationChangeEvent } from "../base/config";
 import * as process from '../base/executor';
 import { isUri, uriToPath } from "../base/uri";
 import { Commit as ApiCommit, RefQuery as ApiRefQuery, Branch, CommitOptions, ForcePushMode, GitErrorCodes, LogOptions, Ref, RefType, Remote } from "./api/git";
 import { LogOutputChannel } from "./logger";
-import { assign, groupBy, isAbsolute, isDescendant, Limiter, Mutable, pathEquals, relativePath, resolve, splitInChunks, toFullPath, Versions } from "./utils";
+import { assign, groupBy, isAbsolute, isDescendant, Limiter, Mutable, pathEquals, relativePath, splitInChunks, toFullPath, Versions } from "./utils";
 
 const fs = acode.require('fs');
 const Url = acode.require('Url');
@@ -286,7 +286,7 @@ export class Git {
       !isDescendant(pathInsidePossibleRepository, repositoryRootPath) &&
       this.compareGitVersionTo('2.31.0') !== -1) {
       const relativePathResult = await this.exec(pathInsidePossibleRepository, ['rev-parse', '--path-format=relative', '--show-toplevel']);
-      return resolve(pathInsidePossibleRepository, relativePathResult.stdout.trimStart().replace(/[\r\n]+$/, ''));
+      return Url.join(pathInsidePossibleRepository, relativePathResult.stdout.trimStart().replace(/[\r\n]+$/, ''));
     }
 
     return repositoryRootPath;
@@ -870,22 +870,22 @@ export class Repository {
   }
 
   async apply(patch: string, reverse?: boolean): Promise<void> {
-		const args = ['apply', patch];
+    const args = ['apply', patch];
 
-		if (reverse) {
-			args.push('-R');
-		}
+    if (reverse) {
+      args.push('-R');
+    }
 
-		try {
-			await this.exec(args);
-		} catch (err: any) {
-			if (/patch does not apply/.test(err.stderr)) {
-				err.gitErrorCode = GitErrorCodes.PatchDoesNotApply;
-			}
+    try {
+      await this.exec(args);
+    } catch (err: any) {
+      if (/patch does not apply/.test(err.stderr)) {
+        err.gitErrorCode = GitErrorCodes.PatchDoesNotApply;
+      }
 
-			throw err;
-		}
-	}
+      throw err;
+    }
+  }
 
   async add(paths: string[], opts?: { update?: boolean }): Promise<void> {
     const args = ['add'];
@@ -904,18 +904,18 @@ export class Repository {
       await this.exec([...args, '--', '.']);
     }
   }
-  
+
   async rm(paths: string[]): Promise<void> {
-		const args = ['rm', '--'];
+    const args = ['rm', '--'];
 
-		if (!paths || !paths.length) {
-			return;
-		}
+    if (!paths || !paths.length) {
+      return;
+    }
 
-		args.push(...paths.map(p => this.sanitizeRelativePath(p)));
+    args.push(...paths.map(p => this.sanitizeRelativePath(p)));
 
-		await this.exec(args);
-	}
+    await this.exec(args);
+  }
 
   async checkout(treeish: string, paths: string[], opts: { track?: boolean; detached?: boolean } = Object.create(null)): Promise<void> {
     const args = ['checkout', '-q'];
@@ -1163,9 +1163,9 @@ export class Repository {
   }
 
   async renameRemote(name: string, newName: string): Promise<void> {
-		const args = ['remote', 'rename', name, newName];
-		await this.exec(args);
-	}
+    const args = ['remote', 'rename', name, newName];
+    await this.exec(args);
+  }
 
   async deleteRemoteRef(remoteName: string, refName: string, options?: { force?: boolean }): Promise<void> {
     const args = ['push', remoteName, '--delete'];
@@ -1865,12 +1865,12 @@ export class Repository {
   }
 
   async updateSubmodules(paths: string[]): Promise<void> {
-		const args = ['submodule', 'update'];
+    const args = ['submodule', 'update'];
 
-		for (const chunk of splitInChunks(paths.map(p => this.sanitizeRelativePath(p)), MAX_CLI_LENGTH)) {
-			await this.exec([...args, '--', ...chunk]);
-		}
-	}
+    for (const chunk of splitInChunks(paths.map(p => this.sanitizeRelativePath(p)), MAX_CLI_LENGTH)) {
+      await this.exec([...args, '--', ...chunk]);
+    }
+  }
 
   async getSubmodules(): Promise<Submodule[]> {
     const gutmodulesPath = Url.join(this.root, '.gitmodules');

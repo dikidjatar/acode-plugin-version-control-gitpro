@@ -2,7 +2,7 @@ import { config } from '../base/config';
 import { Emitter, Event } from '../base/event';
 import { isUri } from '../base/uri';
 
-const ACODE_TERMINAL_FILES = '/data/user/0/com.foxdebug.acodefree/files';
+const ACODE_TERMINAL_FILES = `/data/user/0/${window.BuildInfo.packageName}/files`;
 
 const Url = acode.require('Url');
 const fs = acode.require('fs');
@@ -469,35 +469,5 @@ export function fromNow(date: number | Date, appendAgoLabel?: boolean, useFullTi
 				? `${value} years`
 				: `${value} yrs`;
 		}
-	}
-}
-
-export function resolve(...paths: string[]): string {
-	let resolvedPath = '';
-	let resolvedAbsolute = false;
-
-	for (let i = paths.length - 1; i >= -1 && !resolvedAbsolute; i--) {
-		let path: string;
-
-		path = paths[i];
-		if (i >= 0) {
-		} else {
-			path = '';
-		}
-
-		if (path.length === 0) {
-			continue;
-		}
-
-		resolvedPath = path + '/' + resolvedPath;
-		resolvedAbsolute = path.charCodeAt(0) === 47;
-	}
-
-	resolvedPath = normalizePath(resolvedPath);
-
-	if (resolvedAbsolute) {
-		return '/' + resolvedPath;
-	} else {
-		return resolvedPath;
 	}
 }
