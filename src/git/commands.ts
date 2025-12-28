@@ -1,18 +1,18 @@
-import { Disposable, IDisposable } from "../base/disposable";
 import { config } from "../base/config";
+import { Disposable, IDisposable } from "../base/disposable";
 import { isUri, uriToPath } from "../base/uri";
 import { SourceControl, SourceControlResourceState } from "../scm/api/sourceControl";
 import { ApiRepository } from "./api/api1";
 import { Branch, CommitOptions, ForcePushMode, GitErrorCodes, Ref, RefType, Remote, RemoteSourcePublisher, Status } from "./api/git";
 import { item, showDialogMessage } from "./dialog";
 import { Git } from "./git";
+import { HintItem, showInputHints } from "./hints";
 import { LogOutputChannel } from "./logger";
 import { Model } from "./model";
 import { Repository, Resource, ResourceGroupType } from "./repository";
 import { fromNow, grep, isDescendant, pathEquals } from "./utils";
 
 const fileBrowser = acode.require('fileBrowser') as any;
-const palette = acode.require('palette');
 const Url = acode.require('Url');
 const confirm = acode.require('confirm');
 const openFolder = acode.require('openFolder');
@@ -23,20 +23,7 @@ const EditorFile: any = acode.require('EditorFile');
 const DialogBox = acode.require('DialogBox');
 const multiPrompt = acode.require('multiPrompt');
 
-interface PaletteItem {
-  text: string;
-  value: string;
-}
-
-abstract class CheckoutCommandItem implements PaletteItem {
-
-  get text(): string {
-    return `<div style="display: flex; align-items: center; width: 100%; height: 20px">
-      <span class="icon ${this.icon}" style="min-width: 20px; width: 30px; height: 20px; background-size: 14px;"></span>
-      <span class="text">${this.label}</span>
-    </div>`;
-  }
-
+abstract class CheckoutCommandItem implements HintItem {
   get value(): string {
     return this.label;
   }
@@ -60,56 +47,46 @@ class CheckoutDetachedItem extends CheckoutCommandItem {
   get icon(): string { return 'debug-disconnect'; }
 }
 
-class RefItemSeparator implements PaletteItem {
-  get text(): string {
+class RefItemSeparator implements HintItem {
+  get label(): string {
     switch (this.refType) {
       case RefType.Head:
-        return this._createSeparator('branches');
+        return 'branches';
       case RefType.RemoteHead:
-        return this._createSeparator('remote branched');
+        return 'remote branched';
       case RefType.Tag:
-        return this._createSeparator('tags');
+        return 'tags';
       default:
         return '';
     }
   }
 
-  get value(): string { return ''; }
-
-  private _createSeparator(name: string): string {
-    return `<small>${name}</small>`;
-  }
+  readonly type = 'separator';
 
   constructor(private readonly refType: RefType) { }
 }
 
-class RefItem implements PaletteItem {
+class RefItem implements HintItem {
 
-  get text(): string {
+  get label(): string {
     switch (this.ref.type) {
       case RefType.Head:
-        return this._createeItem('branch', this.ref.name ?? this.shortCommit);
+        return this.ref.name ?? this.shortCommit;
       case RefType.RemoteHead:
-        return this._createeItem('cloud', this.ref.name ?? this.shortCommit);
+        return this.ref.name ?? this.shortCommit;
       case RefType.Tag:
-        return this._createeItem('tag', this.ref.name ?? this.shortCommit);
+        return this.ref.name ?? this.shortCommit;
       default:
         return '';
     }
   }
 
-  private _createeItem(icon: string, label: string): string {
-    return `<div style="width: 100%;">
-      <div style="display: flex;">
-        <span class="icon ${icon}" style="width: 30px; height: 20px; background-size: 14px;"></span>
-        <span>${label} <span style="opacity: 0.6">${this.description}</span></span>
-      </div>
-      ${this.detail ? `<p style="width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 10px; opacity: 0.6">${this.detail}</p>` : ''}
-    </div>`
-  }
-
-  get value(): string {
-    return this.refId;
+  get icon(): string {
+    switch (this.ref.type) {
+      case RefType.Head: return 'branch';
+      case RefType.RemoteHead: return 'cloud';
+      case RefType.Tag: return 'tag';
+    }
   }
 
   get description(): string {
@@ -280,36 +257,32 @@ class RebaseUpstreamItem extends RebaseItem {
   }
 }
 
-class HEADItem implements PaletteItem {
+class HEADItem implements HintItem {
 
   constructor(private repository: Repository, private readonly shortCommitLength: number) { }
 
-  get text(): string { return `<span data-str="${this.description}">HEAD</span>`; }
+  get label(): string { return 'HEAD'; }
   get value(): string { return 'HEAD'; }
   get description(): string { return (this.repository.HEAD?.commit ?? '').substring(0, this.shortCommitLength); }
   get refName(): string { return 'HEAD'; }
 }
 
-class AddRemoteItem implements PaletteItem {
+class AddRemoteItem implements HintItem {
 
   constructor(private cc: CommandCenter) { }
 
-  get text(): string {
-    return `<div style="display: flex; align-items: center; width: 100%; height: 20px">
-      <span class="icon add" style="width: 30px; height: 20px; background-size: 14px;"></span>
-      <span class="text">Add a new remote...</span>
-    </div>`;
-  }
-  get value(): string { return 'Add a new remote...'; }
+  get label(): string { return 'Add a new remote...'; }
+  get icon(): string { return 'add'; };
 
   async run(repository: Repository): Promise<void> {
     await this.cc.addRemote(repository);
   }
 }
 
-class RemoteItem implements PaletteItem {
-  get text(): string { return `<span class="icon cloud" style="width: 30px; height: 20px; background-size: 14px;"></span><span data-str="${this.remote.fetchUrl}">${this.remote.name}</span>`; }
-  get value(): string { return `${this.remote.name}:${this.remote.fetchUrl}`; }
+class RemoteItem implements HintItem {
+  get label(): string { return this.remote.name; }
+  icon = 'cloud';
+  get smallDescription(): string | undefined { return this.remote.fetchUrl; };
   get remoteName(): string { return this.remote.name; }
 
   constructor(private readonly repository: Repository, private readonly remote: Remote) { }
@@ -319,13 +292,10 @@ class RemoteItem implements PaletteItem {
   }
 }
 
-class RepositoryItem implements PaletteItem {
+class RepositoryItem implements HintItem {
 
-  get text(): string {
-    return `<span data-str='${this.path}'>${getRepositoryLabel(this.path)}</span>`;
-  }
-
-  get value(): string { return this.path; }
+  get label(): string { return getRepositoryLabel(this.path); }
+  get smallDescription(): string { return this.path; }
 
   constructor(public readonly path: string) { }
 }
@@ -410,7 +380,7 @@ async function categorizeResourceByResolution(
   return { merge, resolved, unresolved, deletionConflicts };
 }
 
-async function createCheckoutItems(repository: Repository, detached = false): Promise<PaletteItem[]> {
+async function createCheckoutItems(repository: Repository, detached = false): Promise<HintItem[]> {
   const gitConfig = config.get('vcgit');
   const checkoutConfigType = gitConfig?.checkoutType;
   const showRefDetails = gitConfig?.showReferenceDetails === true;
@@ -438,7 +408,7 @@ async function createCheckoutItems(repository: Repository, detached = false): Pr
 class RefProcessor {
   protected readonly refs: Ref[] = [];
 
-  constructor(protected readonly type: RefType, protected readonly ctor: { new(ref: Ref, shortCommitLength: number): PaletteItem } = RefItem) { }
+  constructor(protected readonly type: RefType, protected readonly ctor: { new(ref: Ref, shortCommitLength: number): HintItem } = RefItem) { }
 
   processRef(ref: Ref): boolean {
     if (!ref.name && !ref.commit) {
@@ -452,7 +422,7 @@ class RefProcessor {
     return true;
   }
 
-  getItems(shortCommitLength: number): PaletteItem[] {
+  getItems(shortCommitLength: number): HintItem[] {
     const items = this.refs.map(r => new this.ctor(r, shortCommitLength));
     return items.length === 0 ? items : [new RefItemSeparator(this.type), ...items];
   }
@@ -473,7 +443,7 @@ class RefItemsProcessor {
     this.shortCommitLength = gitConfig?.commitShortHashLength ?? 7;
   }
 
-  processRefs(refs: Ref[]): PaletteItem[] {
+  processRefs(refs: Ref[]): HintItem[] {
     const refsToSkip = this.getRefsToSkip();
 
     for (const ref of refs) {
@@ -487,7 +457,7 @@ class RefItemsProcessor {
       }
     }
 
-    const result: PaletteItem[] = [];
+    const result: HintItem[] = [];
     for (const processor of this.processors) {
       result.push(...processor.getItems(this.shortCommitLength));
     }
@@ -516,7 +486,7 @@ class CheckoutRefProcessor extends RefProcessor {
     super(RefType.Head);
   }
 
-  override getItems(shortCommitLength: number): PaletteItem[] {
+  override getItems(shortCommitLength: number): HintItem[] {
     const items = this.refs.map(ref => new CheckoutItem(ref, shortCommitLength));
     return items.length === 0 ? items : [new RefItemSeparator(this.type), ...items];
   }
@@ -532,7 +502,7 @@ class CheckoutItemsProcessor extends RefItemsProcessor {
     super(repository, processors);
   }
 
-  override processRefs(refs: Ref[]): PaletteItem[] {
+  override processRefs(refs: Ref[]): HintItem[] {
     for (const ref of refs) {
       if (!this.detached && ref.name === 'origin/HEAD') {
         continue;
@@ -545,7 +515,7 @@ class CheckoutItemsProcessor extends RefItemsProcessor {
       }
     }
 
-    const result: PaletteItem[] = [];
+    const result: HintItem[] = [];
     for (const processor of this.processors) {
       for (const item of processor.getItems(this.shortCommitLength)) {
         if (!(item instanceof RefItem)) {
@@ -679,12 +649,12 @@ export class CommandCenter {
 
     const items = this.model.closedRepositories.map(r => new RepositoryItem(r));
 
-    palette(() => items as any[], (path: string) => {
-      const repository = items.find(item => pathEquals(item.path, path));
-      if (repository) {
-        this.model.openRepository(repository.path, true);
-      }
-    }, 'Pick a repository to reopen');
+    const repository = await showInputHints(items, { placeholder: 'Pick a repository to reopen' });
+    if (!repository) {
+      return;
+    }
+
+    this.model.openRepository(repository.path, true);
   }
 
   @command('Close Repository', { repository: true })
@@ -784,16 +754,15 @@ export class CommandCenter {
         repositoryUrl = addedFolder[0].url;
         askToOpen = false;
       } else {
-        const items: { text: string, value: string, url?: string }[] = [
-          ...addedFolder.map(folder => ({ text: `<span data-str='${uriToPath(folder.url)}'>${folder.title}</span>`, value: uriToPath(folder.url), url: folder.url })),
-          { text: 'Choose Folder...', value: 'choose:folder' }
+        const items: { label: string, url?: string }[] = [
+          ...addedFolder.map(folder => ({ label: folder.title, smallDescription: uriToPath(folder.url), url: folder.url })),
+          { label: 'Choose Folder...' }
         ];
-        const value = await new Promise<string>((c) => palette(() => items as any[], c, 'Pick workspace folder to initialize git repo in'));
-        const item = items.find(i => i.value === value);
+        const item = await showInputHints(items, { placeholder: 'Pick workspace folder to initialize git repo in' });
         if (!item) {
           return;
         } else if (item.url) {
-          repositoryPath = item.value;
+          repositoryPath = uriToPath(item.url);
           repositoryUrl = item.url;
           askToOpen = false;
         }
@@ -1488,31 +1457,19 @@ export class CommandCenter {
     const createBranch = new CreateBranchItem();
     const createBranchFrom = new CreateBranchFromItem();
     const checkoutDetached = new CheckoutDetachedItem();
-    let items: PaletteItem[] = [];
+    let items: HintItem[] = [];
 
     if (!opts?.detached) {
       items.push(createBranch, createBranchFrom, checkoutDetached);
     }
 
-    const choice = await new Promise<PaletteItem | undefined>(c => {
-      palette(
-        //@ts-ignore
-        async () => {
-          items.push(...await createCheckoutItems(repository, opts?.detached));
-          return items;
-        },
-        (value) => {
-          if (typeof value !== 'string') {
-            return c(undefined);
-          }
-
-          return c(items.find(i => i.value === value));
-        },
-        opts?.detached
-          ? 'Select a branch to checkout in detached mode'
-          : 'Select a branch or tag to checkout'
-      );
-    });
+    const placeholder = opts?.detached
+      ? 'Select a branch to checkout in detached mode'
+      : 'Select a branch or tag to checkout';
+    const choice = await showInputHints(async () => {
+      items.push(...await createCheckoutItems(repository, opts?.detached));
+      return items;
+    }, { placeholder });
 
     if (!choice) {
       return false;
@@ -1626,18 +1583,7 @@ export class CommandCenter {
         return [new HEADItem(repository, commitShortHashLength), ...refProcessors.processRefs(refs)];
       }
 
-      const choice = await new Promise<PaletteItem | undefined>((c) => {
-        let items: PaletteItem[] = [];
-        palette(
-          //@ts-ignore
-          async () => {
-            items = await getRefHints();
-            return items;
-          },
-          (value) => c(items.find(i => i.value === value)),
-          'Select a ref to create the branch from'
-        );
-      });
+      const choice = await showInputHints(getRefHints, { placeholder: 'Select a ref to create the branch from' });
 
       if (!choice) {
         return;
@@ -1698,18 +1644,7 @@ export class CommandCenter {
       const placeholder = !options.remote
         ? 'Select a branch to delete'
         : 'Select a remote branch to delete';
-      const choice = await new Promise<PaletteItem | undefined>((c) => {
-        let items: PaletteItem[] = [];
-        palette(
-          //@ts-ignore
-          async () => {
-            items = await getBranchHints();
-            return items;
-          },
-          (value) => c(items.find(i => i.value === value)),
-          placeholder
-        );
-      });
+      const choice = await showInputHints(getBranchHints, { placeholder });
 
       if (!(choice instanceof BranchDeleteItem) || !choice.refName) {
         return;
@@ -1764,7 +1699,7 @@ export class CommandCenter {
     const gitConfig = config.get('vcgit')!;
     const showRefDetails = gitConfig.showReferenceDetails;
 
-    const getHints = async (): Promise<PaletteItem[]> => {
+    const getHints = async (): Promise<HintItem[]> => {
       const refs = await repository.getRefs({ includeCommitDetails: showRefDetails });
       const itemsProcessor = new RefItemsProcessor(repository, [
         new RefProcessor(RefType.Head, MergeItem),
@@ -1778,18 +1713,7 @@ export class CommandCenter {
       return itemsProcessor.processRefs(refs);
     }
 
-    const choice = await new Promise<PaletteItem | undefined>((c) => {
-      let items: PaletteItem[] = [];
-      palette(
-        //@ts-ignore
-        async () => {
-          items = await getHints();
-          return items;
-        },
-        (value) => c(items.find(i => i.value === value)),
-        'Select a branch or tag to merge from'
-      );
-    });
+    const choice = await showInputHints(getHints, { placeholder: 'Select a branch or tag to merge from' });
 
     if (choice instanceof MergeItem) {
       await choice.run(repository);
@@ -1807,7 +1731,7 @@ export class CommandCenter {
     const showRefDetails = gitConfig.showReferenceDetails;
     const commitShortHashLength = gitConfig.commitShortHashLength;
 
-    const getHints = async (): Promise<PaletteItem[]> => {
+    const getHints = async (): Promise<HintItem[]> => {
       const refs = await repository.getRefs({ includeCommitDetails: showRefDetails });
       const itemsProcessor = new RefItemsProcessor(repository, [
         new RefProcessor(RefType.Head, RebaseItem),
@@ -1831,18 +1755,7 @@ export class CommandCenter {
       return hintItems;
     }
 
-    const choice = await new Promise<PaletteItem | undefined>((c) => {
-      let items: PaletteItem[] = [];
-      palette(
-        //@ts-ignore
-        async () => {
-          items = await getHints();
-          return items;
-        },
-        (value) => c(items.find(i => i.value === value)),
-        'Select a branch to rebase onto'
-      );
-    });
+    const choice = await showInputHints(getHints, { placeholder: 'Select a branch to rebase onto' });
 
     if (choice instanceof RebaseItem) {
       await choice.run(repository);
@@ -1877,25 +1790,14 @@ export class CommandCenter {
     const showRefDetails = gitConfig.showReferenceDetails;
     const commitShortHashLength = gitConfig.commitShortHashLength;
 
-    const tagHints = async (): Promise<TagDeleteItem[] | PaletteItem[]> => {
+    const tagHints = async (): Promise<TagDeleteItem[] | HintItem[]> => {
       const remoteTags = await repository.getRefs({ pattern: 'refs/tags', includeCommitDetails: showRefDetails });
       return remoteTags.length === 0
-        ? [{ text: 'ⓘ This repository has no tags', value: '' }]
+        ? [{ label: 'ⓘ This repository has no tags' }]
         : remoteTags.map(ref => new TagDeleteItem(ref, commitShortHashLength));
     }
 
-    const choice = await new Promise<PaletteItem | undefined>((c) => {
-      let items: PaletteItem[] = [];
-      palette(
-        //@ts-ignore
-        async () => {
-          items = await tagHints();
-          return items;
-        },
-        (value) => c(items.find(i => i.value === value)),
-        'Select a tag to delete'
-      );
-    });
+    const choice = await showInputHints(tagHints, { placeholder: 'Select a tag to delete' });
 
     if (choice instanceof TagDeleteItem) {
       await choice.run(repository);
@@ -1918,12 +1820,7 @@ export class CommandCenter {
 
     let remoteName = remoteHints[0].remoteName;
     if (remoteHints.length > 1) {
-      const remoteHint = await new Promise<RemoteItem | undefined>((c) => {
-        palette(() => remoteHints as any,
-          (value) => c(remoteHints.find(i => i.value === value)),
-          'Select a remote to delete a tag from'
-        );
-      });
+      const remoteHint = await showInputHints(remoteHints, { placeholder: 'Select a remote to delete a tag from' });
 
       if (!remoteHint) {
         return;
@@ -1932,7 +1829,7 @@ export class CommandCenter {
       remoteName = remoteHint.remoteName;
     }
 
-    const remoteTagHints = async (): Promise<RemoteTagDeleteItem[] | PaletteItem[]> => {
+    const remoteTagHints = async (): Promise<RemoteTagDeleteItem[] | HintItem[]> => {
       const remoteTagsRaw = await repository.getRemoteRefs(remoteName, { tags: true });
 
       // Deduplicate annotated and lightweight tags
@@ -1948,22 +1845,11 @@ export class CommandCenter {
       }
 
       return remoteTags.length === 0
-        ? [{ text: `ⓘ Remote "${remoteName}" has no tags.`, value: '' }]
+        ? [{ label: `ⓘ Remote "${remoteName}" has no tags.` }]
         : remoteTags.map(ref => new RemoteTagDeleteItem(ref, commitShortHashLength));
     }
 
-    const remoteTagHint = await new Promise<PaletteItem | undefined>((c) => {
-      let items: PaletteItem[] = [];
-      palette(
-        //@ts-ignore
-        async () => {
-          items = await remoteTagHints();
-          return items;
-        },
-        (value) => c(items.find(i => i.value === value)),
-        'Select a remote tag to delete'
-      );
-    });
+    const remoteTagHint = await showInputHints(remoteTagHints, { placeholder: 'Select a remote tag to delete' });
 
     if (remoteTagHint instanceof RemoteTagDeleteItem) {
       await remoteTagHint.run(repository, remoteName);
@@ -1994,11 +1880,7 @@ export class CommandCenter {
       }
     }
 
-    const remoteItem = await new Promise<RemoteItem | undefined>(c => {
-      palette(() => remoteItems as any, async (value: string) => {
-        c(remoteItems.find(r => r.value === value));
-      }, 'Select a remote to fetch');
-    });
+    const remoteItem = await showInputHints(remoteItems, { placeholder: 'Select a remote to fetch' });
 
     if (!remoteItem) {
       return;
@@ -2126,13 +2008,13 @@ export class CommandCenter {
       const branchName = repository.HEAD.name;
       if (!pushOptions.pushTo?.remote) {
         const addRemote = new AddRemoteItem(this);
-        const hints = [...remotes.filter(r => r.pushUrl !== undefined).map(r => ({ text: `<span data-str="${r.pushUrl}">${r.name}</span>`, value: r.name })), addRemote];
+        const hints = [...remotes.filter(r => r.pushUrl !== undefined).map(r => ({ label: r.name, smallDescription: r.pushUrl })), addRemote];
         const placeholder = `Pick a remote to publish the branch "${branchName}" to:`;
-        const choice = await new Promise<PaletteItem | undefined>(c => {
-          palette(() => hints as any, async (value: string) => {
-            c(hints.find(r => r.value === value));
-          }, placeholder);
-        });
+        const choice = await showInputHints(hints, { placeholder });
+
+        if (!choice) {
+          return;
+        }
 
         if (choice === addRemote) {
           const newRemote = await this.addRemote(repository);
@@ -2141,7 +2023,7 @@ export class CommandCenter {
             await repository.pushTo(newRemote, branchName, undefined, forcePushMode);
           }
         } else {
-          await repository.pushTo(choice?.value, branchName, undefined, forcePushMode);
+          await repository.pushTo(choice.label, branchName, undefined, forcePushMode);
         }
       } else {
         await repository.pushTo(pushOptions.pushTo.remote, pushOptions.pushTo.refspec || branchName, pushOptions.pushTo.setUpstream, forcePushMode);
@@ -2233,11 +2115,7 @@ export class CommandCenter {
 
     const hints: RemoteItem[] = repository.remotes.map(remote => new RemoteItem(repository, remote));
 
-    const remote = await new Promise<RemoteItem | undefined>(c => {
-      palette(() => hints as any, async (value: string) => {
-        c(hints.find(r => r.value === value));
-      }, 'Select a remote to remove');
-    });
+    const remote = await showInputHints(hints, { placeholder: 'Select a remote to remove' });
 
     if (!remote) {
       return;
@@ -2302,25 +2180,15 @@ export class CommandCenter {
         publisher = publishers[0];
       } else {
         const hints = publishers
-          .map((provider, index) => ({
-            text: `<div style="display: flex; align-items: center; width: 100%; height: 20px">
-              ${provider.icon ? `<span class="icon ${provider.icon}" style="width: 30px; height: 20px; background-size: 14px;"></span>` : ''}
-              <span class="text">Publish To ${provider.name}</span>
-            </div>`,
-            value: index.toString()
-          }));
+          .map((provider) => ({ label: provider.name, icon: provider.icon, provider }));
 
-        const choice = await new Promise<RemoteSourcePublisher | undefined>((c) => {
-          palette(() => hints as any, (value) => {
-            c(publishers.find((pub, index) => index.toString() === value.toString()));
-          }, `Pick a provider to publish the branch "${branchName}" to:`);
-        });
+        const choice = await showInputHints(hints, { placeholder: `Pick a provider to publish the branch "${branchName}" to:` });
 
         if (!choice) {
           return;
         }
 
-        publisher = choice;
+        publisher = choice.provider;
       }
 
       await publisher.publishRepository(new ApiRepository(repository));
@@ -2336,12 +2204,8 @@ export class CommandCenter {
     }
 
     const addRemote = new AddRemoteItem(this);
-    const hints = [...repository.remotes.map(r => ({ text: `<span data-str="${r.pushUrl}">${r.name}</span>`, value: r.pushUrl })), addRemote];
-    const choice = await new Promise<any>((c) => {
-      palette(() => hints as any, (value) => {
-        c(hints.find((hint) => hint.value === value));
-      }, `Pick a provider to publish the branch "${branchName}" to:`);
-    });
+    const hints = [...repository.remotes.map(r => ({ label: r.name, smallDescription: r.pushUrl, value: r.pushUrl })), addRemote];
+    const choice = await showInputHints(hints, { placeholder: `Pick a provider to publish the branch "${branchName}" to:` });
 
     if (!choice) {
       return;
