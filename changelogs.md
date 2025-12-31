@@ -1,5 +1,11 @@
 # ChangeLog
 
+## [2.1.2] - 2026-01-01
+- Added support for monochrome icon options
+- Fixed sync and publish commands
+- Updated Acode terminal files path to use dynamic package name
+- Fixed incorrect folder name (like ".")
+
 ## [2.1.1]
 
 - Fix invalid Android external root folder
