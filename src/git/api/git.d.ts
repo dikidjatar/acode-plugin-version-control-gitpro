@@ -204,6 +204,8 @@ export interface Repository {
 	unsetConfig(key: string): Promise<string>;
 	getGlobalConfig(key: string): Promise<string>;
 
+	getObjectDetails(treeish: string, path: string): Promise<{ mode: string, object: string, size: number }>;
+	buffer(ref: string, path: string): Promise<any>;
 	getCommit(ref: string): Promise<Commit>;
 
 	add(paths: string[]): Promise<void>;
@@ -211,6 +213,10 @@ export interface Repository {
 	clean(paths: string[]): Promise<void>;
 
 	apply(patch: string, reverse?: boolean): Promise<void>;
+	diffWithHEAD(): Promise<Change[]>;
+	diffWithHEAD(path: string): Promise<string>;
+	diffIndexWithHEAD(): Promise<Change[]>;
+	diffIndexWithHEAD(path: string): Promise<string>;
 
 	createBranch(name: string, checkout: boolean, ref?: string): Promise<void>;
 	deleteBranch(name: string, force?: boolean): Promise<void>;
@@ -300,6 +306,7 @@ export interface API {
 	readonly onDidOpenRepository: Event<Repository>;
 	readonly onDidCloseRepository: Event<Repository>;
 
+	toGitUri(uri: string, ref: string): string;
 	getRepository(uri: string): Repository | null;
 	getRepositoryRoot(uri: string): Promise<string | null>;
 	init(root: string, options?: InitOptions): Promise<Repository | null>;

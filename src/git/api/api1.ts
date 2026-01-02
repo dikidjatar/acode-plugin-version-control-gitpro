@@ -4,6 +4,7 @@ import { SourceControl, SourceControlInputBox } from "../../scm/api/sourceContro
 import { Model } from "../model";
 import { OperationKind, OperationResult } from "../operation";
 import { Repository as BaseRepository, Resource } from "../repository";
+import { toGitUri } from "../uri";
 import { API, APIState, Branch, BranchQuery, Change, Commit, CommitOptions, CredentialsProvider, FetchOptions, ForcePushMode, Git, GitErrorCodes, InitOptions, InputBox, LogOptions, PublishEvent, PushErrorHandler, Ref, RefQuery, Remote, RemoteSourcePublisher, Repository, RepositoryState, RepositoryUIState, Status, Submodule } from "./git";
 
 class ApiInputBox implements InputBox {
@@ -105,6 +106,14 @@ export class ApiRepository implements Repository {
     return this.#repository.getGlobalConfig(key);
   }
 
+  getObjectDetails(treeish: string, path: string): Promise<{ mode: string; object: string; size: number }> {
+    return this.#repository.getObjectDetails(treeish, path);
+  }
+
+  buffer(ref: string, path: string): Promise<any> {
+    return this.#repository.buffer(ref, path);
+  }
+
   getCommit(ref: string): Promise<Commit> {
     return this.#repository.getCommit(ref);
   }
@@ -119,6 +128,18 @@ export class ApiRepository implements Repository {
 
   clean(paths: string[]): Promise<void> {
     return this.#repository.clean(paths);
+  }
+
+  diffWithHEAD(): Promise<Change[]>;
+  diffWithHEAD(path: string): Promise<string>;
+  diffWithHEAD(path?: string): Promise<string | Change[]> {
+    return this.#repository.diffWithHEAD(path);
+  }
+
+  diffIndexWithHEAD(): Promise<Change[]>;
+  diffIndexWithHEAD(path: string): Promise<string>;
+  diffIndexWithHEAD(path?: string): Promise<string | Change[]> {
+    return this.#repository.diffIndexWithHEAD(path);
   }
 
   createBranch(name: string, checkout: boolean, ref?: string): Promise<void> {
@@ -264,6 +285,10 @@ export class ApiImpl implements API {
 
   get repositories(): Repository[] {
     return this.#model.repositories.map(r => new ApiRepository(r));
+  }
+
+  toGitUri(uri: string, ref: string): string {
+    return toGitUri(uri, ref);
   }
 
   getRepository(uri: string): Repository | null {

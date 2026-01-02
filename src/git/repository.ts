@@ -9,7 +9,7 @@ import { SourceControl, SourceControlInputBox, SourceControlProgess, SourceContr
 import { ActionButton } from "./actionButton";
 import { CommandActions } from "./actions";
 import { ApiRepository } from "./api/api1";
-import { Branch, BranchQuery, Commit, CommitOptions, FetchOptions, ForcePushMode, GitErrorCodes, LogOptions, Ref, RefType, Remote, Status } from "./api/git";
+import { Branch, BranchQuery, Change, Commit, CommitOptions, FetchOptions, ForcePushMode, GitErrorCodes, LogOptions, Ref, RefType, Remote, Status } from "./api/git";
 import { AutoFetcher } from "./autofetch";
 import { FileDecoration } from "./fileDecorationService";
 import { FileSystemWatcher, RelativePattern } from "./fileSystemWatcher";
@@ -354,6 +354,8 @@ export class Repository implements IDisposable {
     return this._untrackedGroup as GitResourceGroup;
   }
 
+  private _EMPTY_TREE: string | undefined;
+
   private _HEAD: Branch | undefined;
   get HEAD(): Branch | undefined {
     return this._HEAD;
@@ -582,6 +584,20 @@ export class Repository implements IDisposable {
     await this.run(Operation.Refresh);
   }
 
+  diffWithHEAD(): Promise<Change[]>;
+  diffWithHEAD(path: string): Promise<string>;
+  diffWithHEAD(path?: string | undefined): Promise<string | Change[]>;
+  diffWithHEAD(path?: string | undefined): Promise<string | Change[]> {
+    return this.run(Operation.Diff, () => this.repository.diffWithHEAD(path));
+  }
+
+  diffIndexWithHEAD(): Promise<Change[]>;
+  diffIndexWithHEAD(path: string): Promise<string>;
+  diffIndexWithHEAD(path?: string | undefined): Promise<string | Change[]>;
+  diffIndexWithHEAD(path?: string): Promise<string | Change[]> {
+    return this.run(Operation.Diff, () => this.repository.diffIndexWithHEAD(path));
+  }
+
   async add(resources: string[], opts?: { update?: boolean }): Promise<void> {
     await this.run(
       Operation.Add(true),
@@ -710,6 +726,15 @@ export class Repository implements IDisposable {
 
   async getCommit(ref: string): Promise<Commit> {
     return await this.repository.getCommit(ref);
+  }
+
+  async getEmptyTree(): Promise<string> {
+    if (!this._EMPTY_TREE) {
+      const result = await this.repository.exec(['hash-object', '-t', 'tree'], { shellAppend: '/dev/null' });
+      this._EMPTY_TREE = result.stdout.trim();
+    }
+
+    return this._EMPTY_TREE;
   }
 
   async reset(treeish: string, hard?: boolean): Promise<void> {
@@ -924,6 +949,14 @@ export class Repository implements IDisposable {
         ? `It looks like the current branch "${currentBranch}" might have been rebased. Are you sure you still want to pull into it?`
         : 'It looks like the current branch might have been rebased. Are you sure you still want to pull into it?'
     );
+  }
+
+  async buffer(ref: string, filePath: string): Promise<string> {
+    return this.run(Operation.Show, () => this.repository.buffer(ref, filePath));
+  }
+
+  getObjectDetails(ref: string, path: string): Promise<{ mode: string; object: string; size: number }> {
+    return this.run(Operation.GetObjectDetails, () => this.repository.getObjectDetails(ref, path));
   }
 
   async apply(patch: string, reverse?: boolean): Promise<void> {
