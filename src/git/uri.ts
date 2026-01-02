@@ -25,12 +25,9 @@ export interface GitUriOptions {
 export function toGitUri(uri: string, ref: string, options: GitUriOptions = {}): string {
   const params: GitUriParams = {
     path: uriToPath(uri),
-    ref
+    ref,
+    submoduleOf: options.submoduleOf
   };
-
-  if (options.submoduleOf) {
-    params.submoduleOf = options.submoduleOf;
-  }
 
   let path = uriToPath(uri);
 
@@ -40,5 +37,5 @@ export function toGitUri(uri: string, ref: string, options: GitUriOptions = {}):
     path = `${path}.diff`;
   }
 
-  return `git://${path}?path=${params.path}&ref=${params.ref}&submoduleOf=${params.submoduleOf}`;
+  return `git://${path}?path=${params.path}&ref=${params.ref}${params.submoduleOf ? `&submoduleOf=${params.submoduleOf}` : ''}`;
 }

@@ -563,6 +563,18 @@ function initializeMenus(logger: LogOutputChannel): void {
 			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git' && ctx.scmResourceGroup === 'untracked',
 			enablement: () => !App.getContext<boolean>('git.operationInProgress')
 		},
+		{
+			command: { id: 'git.openHEADFile', title: 'Open File (HEAD)' },
+			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git' && ctx.scmResourceGroup === 'index'
+		},
+		{
+			command: { id: 'git.openHEADFile', title: 'Open File (HEAD)' },
+			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git' && ctx.scmResourceGroup === 'workingTree'
+		},
+		{
+			command: { id: 'git.openHEADFile', title: 'Open File (HEAD)' },
+			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git' && ctx.scmResourceGroup === 'untracked'
+		},
 	]);
 
 	SCMMenuRegistry.registerMenuItems('scm/resourceFolder/context', [
