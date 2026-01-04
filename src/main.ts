@@ -82,7 +82,9 @@ const defaultGitConfig: IGitConfig = {
 	detectSubmodules: true,
 	detectSubmodulesLimit: 10,
 	useInotifywait: true,
-	decorationsEnabled: true
+	decorationsEnabled: true,
+	promptToSaveFilesBeforeStash: 'always',
+	useCommitInputAsStashMessage: false
 }
 
 async function destroy() {
@@ -170,6 +172,7 @@ async function createModel(logger: LogOutputChannel, disposables: IDisposable[])
 	disposables.push(Disposable.toDisposable(() => fsOperation.remove(GitFileSystemProvider.test)));
 
 	checkGitVersion(info);
+	App.setContext('gitVersion2.35', git.compareGitVersionTo('2.35') >= 0);
 
 	return model;
 }
@@ -453,8 +456,14 @@ function initializeMenus(logger: LogOutputChannel): void {
 			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git'
 		},
 		{
-			command: { id: 'git.tags', title: 'Tags' },
+			command: { id: 'git.stash', title: 'Stash' },
 			group: '2_main@5',
+			submenu: true,
+			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git'
+		},
+		{
+			command: { id: 'git.tags', title: 'Tags' },
+			group: '2_main@6',
 			submenu: true,
 			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git'
 		},
@@ -786,6 +795,57 @@ function initializeMenus(logger: LogOutputChannel): void {
 		}
 	]);
 
+	// Stash
+	SCMMenuRegistry.registerMenuItems('git.stash', [
+		{
+			command: { id: 'git.stash', title: 'Stash' },
+			group: '1_stash@1',
+			enablement: () => !App.getContext<boolean>('git.operationInProgress')
+		},
+		{
+			command: { id: 'git.stashIncludeUntracked', title: 'Stash (Include Untracked)' },
+			group: '1_stash@2',
+			enablement: () => !App.getContext<boolean>('git.operationInProgress')
+		},
+		{
+			command: { id: 'git.stashStaged', title: 'Stash Staged' },
+			group: '1_stash@3',
+			enablement: () => !App.getContext<boolean>('git.operationInProgress'),
+			when: () => App.getContext<boolean>('gitVersion2.35') === true
+		},
+		{
+			command: { id: 'git.stashApplyLatest', title: 'Apply Latest Stash' },
+			group: '2_apply@1',
+			enablement: () => !App.getContext<boolean>('git.operationInProgress'),
+		},
+		{
+			command: { id: 'git.stashApply', title: 'Apply Stash...' },
+			group: '2_apply@2',
+			enablement: () => !App.getContext<boolean>('git.operationInProgress'),
+		},
+		{
+			command: { id: 'git.stashPopLatest', title: 'Pop Latest Stash' },
+			group: '3_pop@1',
+			enablement: () => !App.getContext<boolean>('git.operationInProgress'),
+		},
+		{
+			command: { id: 'git.stashPop', title: 'Pop Stash...' },
+			group: '3_pop@2',
+			enablement: () => !App.getContext<boolean>('git.operationInProgress'),
+		},
+		{
+			command: { id: 'git.stashDrop', title: 'Drop Stash...' },
+			group: '4_drop@1',
+			enablement: () => !App.getContext<boolean>('git.operationInProgress'),
+		},
+		{
+			command: { id: 'git.stashDropAll', title: 'Drop All Stashes...' },
+			group: '4_drop@2',
+			enablement: () => !App.getContext<boolean>('git.operationInProgress'),
+		}
+	]);
+
+	// Tags
 	SCMMenuRegistry.registerMenuItems('git.tags', [
 		{
 			command: { id: 'git.createTag', title: 'Create Tag...' },
@@ -1189,6 +1249,19 @@ function gitPluginSettings(): Acode.PluginSettings {
 				checkbox: configs.decorationsEnabled,
 				text: 'Git: Decorations',
 				info: 'Controls whether Git contributes colors and badges to the Explorer and the Open Editors view.'
+			},
+			{
+				key: 'promptToSaveFilesBeforeStash',
+				value: configs.promptToSaveFilesBeforeStash,
+				select: ['always', 'staged', 'never'],
+				text: 'Git: Prompt To Save Files Before Stash',
+				info: 'Controls whether Git should check for unsaved files before stashing changes.'
+			},
+			{
+				key: 'useCommitInputAsStashMessage',
+				value: configs.useCommitInputAsStashMessage,
+				text: 'Git: Use Commit Input As Stash Message',
+				info: 'Controls whether to use the message from the commit input box as the default stash message.'
 			}
 		],
 		cb(key: string, value: unknown) {

@@ -91,6 +91,8 @@ interface IGitConfig {
   readonly detectSubmodulesLimit: number;
   readonly useInotifywait: boolean;
   readonly decorationsEnabled: boolean;
+  readonly promptToSaveFilesBeforeStash: 'always' | 'staged' | 'never';
+  readonly useCommitInputAsStashMessage: boolean;
 }
 
 declare namespace Acode {

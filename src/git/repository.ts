@@ -13,7 +13,7 @@ import { Branch, BranchQuery, Change, Commit, CommitOptions, FetchOptions, Force
 import { AutoFetcher } from "./autofetch";
 import { FileDecoration } from "./fileDecorationService";
 import { FileSystemWatcher, RelativePattern } from "./fileSystemWatcher";
-import { Repository as BaseRepository, GitError, PullOptions, RefQuery, Submodule } from "./git";
+import { Repository as BaseRepository, GitError, LsTreeElement, PullOptions, RefQuery, Stash, Submodule } from "./git";
 import { LogOutputChannel } from "./logger";
 import { Operation, OperationKind, OperationManager, OperationResult } from "./operation";
 import { IPushErrorHandlerRegistry } from "./pushError";
@@ -955,12 +955,36 @@ export class Repository implements IDisposable {
     return this.run(Operation.Show, () => this.repository.buffer(ref, filePath));
   }
 
+  getObjectFiles(ref: string): Promise<LsTreeElement[]> {
+    return this.run(Operation.GetObjectFiles, () => this.repository.lstree(ref));
+  }
+
   getObjectDetails(ref: string, path: string): Promise<{ mode: string; object: string; size: number }> {
     return this.run(Operation.GetObjectDetails, () => this.repository.getObjectDetails(ref, path));
   }
 
   async apply(patch: string, reverse?: boolean): Promise<void> {
     return await this.run(Operation.Apply, () => this.repository.apply(patch, reverse));
+  }
+
+  async getStashes(): Promise<Stash[]> {
+    return this.run(Operation.Stash, () => this.repository.getStashes());
+  }
+
+  async createStash(message?: string, includeUntracked?: boolean, staged?: boolean): Promise<void> {
+    return await this.run(Operation.Stash, () => this.repository.createStash(message, includeUntracked, staged));
+  }
+
+  async popStash(index?: number): Promise<void> {
+    return await this.run(Operation.Stash, () => this.repository.popStash(index));
+  }
+
+  async dropStash(index?: number): Promise<void> {
+    return await this.run(Operation.Stash, () => this.repository.dropStash(index));
+  }
+
+  async applyStash(index?: number): Promise<void> {
+    return await this.run(Operation.Stash, () => this.repository.applyStash(index));
   }
 
   async rm(resources: string[]): Promise<void> {

@@ -30,6 +30,14 @@ export interface IFileStatus {
   rename?: string;
 }
 
+export interface Stash {
+  readonly hash: string;
+  readonly parents: string[];
+  readonly index: number;
+  readonly description: string;
+  readonly branchName?: string;
+}
+
 interface MutableRemote extends Remote {
   fetchUrl?: string;
   pushUrl?: string;
@@ -185,6 +193,7 @@ function sanitizeRelativePath(path: string): string {
 }
 
 const COMMIT_FORMAT = '%H%n%aN%n%aE%n%at%n%ct%n%P%n%D%n%B';
+const STASH_FORMAT = '%H%n%P%n%gd%n%gs';
 
 export interface ICloneOptions {
   readonly parentPath: string;
@@ -680,6 +689,32 @@ export function parseLsFiles(raw: string): LsFilesElement[] {
     .map(line => /^(\S+)\s+(\S+)\s+(\S+)\s+(.*)$/.exec(line)!)
     .filter(m => !!m)
     .map(([, mode, object, stage, file]) => ({ mode, object, stage, file }));
+}
+
+const stashRegex = /([0-9a-f]{40})\n(.*)\nstash@{(\d+)}\n(WIP\s)*on([^:]+):(.*)(?:\x00)/gmi;
+
+function parseGitStashes(raw: string): Stash[] {
+  const result: Stash[] = [];
+
+  let match, hash, parents, index, wip, branchName, description;
+
+  do {
+    match = stashRegex.exec(raw);
+    if (match === null) {
+      break;
+    }
+
+    [, hash, parents, index, wip, branchName, description] = match;
+    result.push({
+      hash,
+      parents: parents.split(' '),
+      index: parseInt(index),
+      branchName: branchName.trim(),
+      description: wip ? `WIP (${description.trim()})` : description.trim()
+    });
+  } while (true);
+
+  return result;
 }
 
 function parseGitChanges(repositoryRoot: string, raw: string): Change[] {
@@ -1621,6 +1656,11 @@ export class Repository {
     await this.popOrApplyStash(args, index);
   }
 
+  async applyStash(index?: number): Promise<void> {
+    const args = ['stash', 'apply'];
+    await this.popOrApplyStash(args, index);
+  }
+
   private async popOrApplyStash(args: string[], index?: number): Promise<void> {
     try {
       if (typeof index === 'number') {
@@ -1635,6 +1675,27 @@ export class Repository {
         err.gitErrorCode = GitErrorCodes.LocalChangesOverwritten;
       } else if (/^CONFLICT/m.test(err.stdout || '')) {
         err.gitErrorCode = GitErrorCodes.StashConflict;
+      }
+
+      throw err;
+    }
+  }
+
+  async dropStash(index?: number): Promise<void> {
+    const args = ['stash'];
+
+    if (typeof index === 'number') {
+      args.push('drop');
+      args.push(`stash@{${index}}`);
+    } else {
+      args.push('clear');
+    }
+
+    try {
+      await this.exec(args);
+    } catch (err: any) {
+      if (/No stash found/.test(err.stderr || '')) {
+        err.gitErrorCode = GitErrorCodes.NoStashFound;
       }
 
       throw err;
@@ -1877,6 +1938,11 @@ export class Repository {
       .filter(line => !!line)
       .map(fn)
       .filter(ref => !!ref) as Ref[];
+  }
+
+  async getStashes(): Promise<Stash[]> {
+    const result = await this.exec(['stash', 'list', `--format=${STASH_FORMAT}`, '-z']);
+    return parseGitStashes(result.stdout.trim());
   }
 
   async getBranch(name: string): Promise<Branch> {

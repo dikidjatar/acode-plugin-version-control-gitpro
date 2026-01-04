@@ -5,7 +5,7 @@ import { SourceControl, SourceControlResourceState } from "../scm/api/sourceCont
 import { ApiRepository } from "./api/api1";
 import { Branch, CommitOptions, ForcePushMode, GitErrorCodes, Ref, RefType, Remote, RemoteSourcePublisher, Status } from "./api/git";
 import { item, showDialogMessage } from "./dialog";
-import { Git } from "./git";
+import { Git, Stash } from "./git";
 import { HintItem, showInputHints } from "./hints";
 import { LogOutputChannel } from "./logger";
 import { Model } from "./model";
@@ -299,6 +299,14 @@ class RepositoryItem implements HintItem {
   get smallDescription(): string { return this.path; }
 
   constructor(public readonly path: string) { }
+}
+
+class StashItem implements HintItem {
+
+  get label(): string { return `#${this.stash.index}: ${this.stash.description}`; }
+  get smallDescription(): string | undefined { return this.stash.branchName; }
+
+  constructor(readonly stash: Stash) { }
 }
 
 function getRepositoryLabel(repositoryRoot: string): string {
@@ -2268,6 +2276,195 @@ export class CommandCenter {
 
       this.model.firePublishEvent(repository, branchName);
     }
+  }
+
+  private async _stash(repository: Repository, includeUntracked = false, staged = false): Promise<boolean> {
+    const noUnstagedChanges = repository.workingTreeGroup.resourceStates.length === 0
+      && (!includeUntracked || repository.untrackedGroup.resourceStates.length === 0);
+    const noStagedChanges = repository.indexGroup.resourceStates.length === 0;
+
+    if (staged) {
+      if (noStagedChanges) {
+        acode.pushNotification('', 'There are no staged changes to stash.');
+        return false;
+      }
+    } else {
+      if (noUnstagedChanges && noStagedChanges) {
+        acode.pushNotification('', 'There are no changes to stash.');
+        return false;
+      }
+    }
+
+    const gitConfig = config.get('vcgit')!;
+    const promptToSaveFilesBeforeStashing = gitConfig.promptToSaveFilesBeforeStash;
+
+    if (promptToSaveFilesBeforeStashing !== 'never') {
+      let files = editorManager.files
+        .filter(file => file.name !== 'untitled.txt' && isDescendant(repository.root, uriToPath(file.uri)));
+
+      if (promptToSaveFilesBeforeStashing === 'staged' || repository.indexGroup.resourceStates.length > 0) {
+        files = files
+          .filter(file => repository.indexGroup.resourceStates.some(s => pathEquals(s.resourceUri, uriToPath(file.uri))));
+      }
+
+      if (files.length > 0) {
+        const message = files.length === 1
+          ? `The following file has unsaved changes which won\'t be included in the stash if you proceed: ${Url.basename(files[0].uri)}.</br></br>Would you like to save it before stashing?`
+          : `There are ${files.length} unsaved files.</br></br>Would you like to save them before stashing?`;
+        const saveAndStash = item('Save All & Stash');
+        const stash = item('Stash Anyway');
+        const result = await showDialogMessage('WARNING', message, saveAndStash, stash);
+
+        if (result === saveAndStash) {
+          await Promise.all(files.map(file => file.save()));
+        } else if (result !== stash) {
+          return false;
+        }
+      }
+    }
+
+    let message: string | null = null;
+
+    if (gitConfig.useCommitInputAsStashMessage) {
+      message = repository.inputBox.value;
+    }
+
+    message = await prompt('Stash Message', '', 'text', { placeholder: 'Optionally provide a stash message' });
+
+    if (message === null) {
+      return false;
+    }
+
+    try {
+      await repository.createStash(message, includeUntracked, staged);
+      return true;
+    } catch (err: any) {
+      if (/You do not have the initial commit yet/.test(err.stderr || '')) {
+        acode.pushNotification('INFO', 'The repository does not have any commits. Please make an initial commit before creating a stash.', { type: 'info' });
+        return false;
+      }
+
+      throw err;
+    }
+  }
+
+  @command('Stash', { repository: true })
+  async stash(repository: Repository): Promise<boolean> {
+    return await this._stash(repository);
+  }
+
+  @command('Stash Staged', { repository: true })
+  async stashStaged(repository: Repository): Promise<boolean> {
+    return await this._stash(repository, false, true);
+  }
+
+  @command('Stash (Include Untracked)', { repository: true })
+  async stashIncludeUntracked(repository: Repository): Promise<boolean> {
+    return await this._stash(repository, true);
+  }
+
+  @command('Pop Stash...', { repository: true })
+  async stashPop(repository: Repository): Promise<void> {
+    const placeHolder = 'Pick a stash to pop';
+    const stash = await this.pickStash(repository, placeHolder);
+
+    if (!stash) {
+      return;
+    }
+
+    await repository.popStash(stash.index);
+  }
+
+  @command('Pop Latest Stash', { repository: true })
+  async stashPopLatest(repository: Repository): Promise<void> {
+    const stashes = await repository.getStashes();
+
+    if (stashes.length === 0) {
+      acode.pushNotification('', 'There are no stashes in the repository.');
+      return;
+    }
+
+    await repository.popStash();
+  }
+
+  @command('Apply Stash...', { repository: true })
+  async stashApply(repository: Repository): Promise<void> {
+    const placeHolder = 'Pick a stash to apply';
+    const stash = await this.pickStash(repository, placeHolder);
+
+    if (!stash) {
+      return;
+    }
+
+    await repository.applyStash(stash.index);
+  }
+
+  @command('Apply Latest Stash', { repository: true })
+  async stashApplyLatest(repository: Repository): Promise<void> {
+    const stashes = await repository.getStashes();
+
+    if (stashes.length === 0) {
+      acode.pushNotification('', 'There are no stashes in the repository.');
+      return;
+    }
+
+    await repository.applyStash();
+  }
+
+  @command('Drop Stash...', { repository: true })
+  async stashDrop(repository: Repository): Promise<void> {
+    const placeHolder = 'Pick a stash to drop';
+    const stash = await this.pickStash(repository, placeHolder);
+
+    if (!stash) {
+      return;
+    }
+
+    await this._stashDrop(repository, stash);
+  }
+
+  @command('Drop All Stashes...', { repository: true })
+  async stashDropAll(repository: Repository): Promise<void> {
+    const stashes = await repository.getStashes();
+
+    if (stashes.length === 0) {
+      acode.pushNotification('', 'There are no stashes in the repository.');
+      return;
+    }
+
+    const question = stashes.length === 1 ?
+      `Are you sure you want to drop ALL stashes? There is 1 stash that will be subject to pruning, and MAY BE IMPOSSIBLE TO RECOVER.` :
+      `Are you sure you want to drop ALL stashes? There are ${stashes.length} stashes that will be subject to pruning, and MAY BE IMPOSSIBLE TO RECOVER.`;
+
+    const result = await confirm('WARNING', question);
+    if (result !== true) {
+      return;
+    }
+
+    await repository.dropStash();
+  }
+
+  async _stashDrop(repository: Repository, stash: Stash): Promise<boolean> {
+    const result = await confirm('WARNING', `Are you sure you want to drop the stash: ${stash.description}?`);
+
+    if (result !== true) {
+      return false;
+    }
+
+    await repository.dropStash(stash.index);
+    return true;
+  }
+
+  private async pickStash(repository: Repository, placeholder: string): Promise<Stash | undefined> {
+    const getStashHintItems = async (): Promise<StashItem[] | HintItem[]> => {
+      const stashes = await repository.getStashes();
+      return stashes.length > 0
+        ? stashes.map(stash => new StashItem(stash))
+        : [{ label: 'ⓘ This repository has no stashes.' }];
+    }
+
+    const result = await showInputHints(getStashHintItems as () => Promise<StashItem[]>, { placeholder });
+    return result instanceof StashItem ? result.stash : undefined;
   }
 
   private getSCMResource(path?: string): Resource | undefined {
