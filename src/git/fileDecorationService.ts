@@ -24,9 +24,11 @@ export interface FileDecorationProvider extends IDisposable {
 
 export class AcodeFileDecorationService {
 
-  private providers: Set<FileDecorationProvider> = new Set();
-  private container: HTMLElement | undefined;
-  private observer: MutationObserver;
+  private readonly providers: Set<FileDecorationProvider> = new Set();
+  private readonly container: HTMLElement | undefined;
+  private readonly observer: MutationObserver;
+
+  private readonly disposables = new DisposableStore();
 
   constructor() {
     this.container = sidebarApps.get('files');
@@ -51,6 +53,19 @@ export class AcodeFileDecorationService {
         attributeFilter: ['class']
       });
     }
+
+    const onEditorFile = () => {
+      this.updateFileTabUrl();
+      this.processNode(editorManager.openFileList);
+    }
+
+    editorManager.on('new-file', onEditorFile);
+    editorManager.on('rename-file', onEditorFile);
+
+    this.disposables.add(Disposable.toDisposable(() => {
+      editorManager.off('new-file', onEditorFile);
+      editorManager.off('rename-file', onEditorFile);
+    }));
   }
 
   registerFileDecorationProvider(provider: FileDecorationProvider): IDisposable {
@@ -69,16 +84,27 @@ export class AcodeFileDecorationService {
   }
 
   private refresh(): void {
-    if (!this.container) {
-      return;
+    if (this.container) {
+      this.processNode(this.container);
     }
 
-    this.processNode(this.container);
+    this.updateFileTabUrl();
+    this.processNode(editorManager.openFileList);
+  }
+
+  private updateFileTabUrl(): void {
+    editorManager.files
+      .filter(file => !!file.uri)
+      .forEach(file => {
+        const fieTab = file.tab as unknown;
+        if (fieTab instanceof HTMLElement) {
+          fieTab.setAttribute('data-url', file.uri);
+        }
+      });
   }
 
   private processNode(node: HTMLElement): void {
     const elements = Array.from(node.querySelectorAll('.tile[data-url]')) as HTMLElement[];
-    elements.forEach(element => this.clearDecoration(element));
     elements.forEach(element => this.applyDecoration(element));
   }
 
@@ -113,6 +139,8 @@ export class AcodeFileDecorationService {
   }
 
   private renderFileDecoration(element: HTMLElement, decoration: FileDecoration) {
+    this.clearDecoration(element);
+
     const text = element.querySelector('.text') as HTMLElement;
     const badge = tag('span', {
       className: 'badge',
@@ -158,5 +186,6 @@ export class AcodeFileDecorationService {
   dispose(): void {
     this.observer.disconnect();
     this.providers.forEach(provider => provider.dispose());
+    this.disposables.dispose();
   }
 }
