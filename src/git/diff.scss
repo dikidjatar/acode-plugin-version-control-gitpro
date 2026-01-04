@@ -1,0 +1,21 @@
+.gh-added-line {
+  background-color: rgba(46, 160, 67, 0.149) !important;
+  position: absolute;
+  width: 100% !important;
+  left: 0 !important;
+}
+
+.gh-deleted-line {
+  background-color: rgba(248, 81, 73, 0.102) !important;
+  position: absolute;
+  width: 100% !important;
+  left: 0 !important;
+}
+
+.ace_gutter-cell.gh-added-gutter {
+  background-color: rgba(63, 185, 80, 0.302) !important;
+}
+
+.ace_gutter-cell.gh-deleted-gutter {
+  background-color: rgba(248, 81, 73, 0.302) !important;
+}

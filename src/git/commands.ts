@@ -5,13 +5,14 @@ import { SourceControl, SourceControlResourceState } from "../scm/api/sourceCont
 import { ApiRepository } from "./api/api1";
 import { Branch, CommitOptions, ForcePushMode, GitErrorCodes, Ref, RefType, Remote, RemoteSourcePublisher, Status } from "./api/git";
 import { item, showDialogMessage } from "./dialog";
+import { UnifiedDiff } from "./diff";
 import { Git, Stash } from "./git";
 import { HintItem, showInputHints } from "./hints";
 import { LogOutputChannel } from "./logger";
 import { Model } from "./model";
 import { Repository, Resource, ResourceGroupType } from "./repository";
 import { toGitUri } from "./uri";
-import { fromNow, grep, isDescendant, pathEquals } from "./utils";
+import { fromNow, getModeForFile, grep, isDescendant, pathEquals } from "./utils";
 
 const fileBrowser = acode.require('fileBrowser') as any;
 const Url = acode.require('Url');
@@ -553,12 +554,6 @@ function getCheckoutRefProcessor(repository: Repository, type: string): RefProce
   }
 }
 
-function getModeForFile(filename: string) {
-  const { getModeForPath } = ace.require('ace/ext/modelist');
-  const { name } = getModeForPath(filename);
-  return `ace/mode/${name}`;
-}
-
 export class CommandCenter {
 
   private disposables: IDisposable[];
@@ -574,8 +569,9 @@ export class CommandCenter {
       editorManager.editor.commands.addCommand({
         name: commandName,
         description: `Git: ${title}`,
-        exec: (editor: any, arg: any) => command(...(Array.isArray(arg) ? arg : [arg]))
-      });
+        exec: (editor: any, arg: any) => command(...(Array.isArray(arg) ? arg : [arg])),
+        readOnly: true
+      } satisfies Ace.Command);
       return Disposable.toDisposable(() => {
         editorManager.editor.commands.removeCommand(commandName);
       });
@@ -778,6 +774,64 @@ export class CommandCenter {
     if (localStorage.sidebarShown === '1') {
       acode.exec('toggle-sidebar');
     }
+  }
+
+  @command('Open Changes')
+  async openChange(arg?: Resource | string, ...resourceStates: SourceControlResourceState[]): Promise<void> {
+    let resources: Resource[] | undefined = undefined;
+
+    if (typeof arg === 'string') {
+      const resource = this.getSCMResource(arg);
+      if (resource !== undefined) {
+        resources = [resource];
+      }
+    } else {
+      let resource: Resource | undefined = undefined;
+
+      if (arg instanceof Resource) {
+        resource = arg;
+      } else {
+        resource = this.getSCMResource();
+      }
+
+      if (resource) {
+        resources = [...resourceStates as Resource[], resource];
+      }
+    }
+
+    if (!resources) {
+      return;
+    }
+
+    for (const resource of resources) {
+      await resource.openChange();
+    }
+
+    if (localStorage.sidebarShown === '1') {
+      acode.exec('toggle-sidebar');
+    }
+  }
+
+  @command('Diff')
+  async diff(leftUri?: string, rightUri?: string, title?: string): Promise<void> {
+    if (!leftUri || !rightUri) {
+      return;
+    }
+
+    title = title || `${Url.basename(leftUri) || Url.basename(rightUri)} (Diff)`;
+    const diff = new UnifiedDiff({ oldUri: leftUri, newUri: rightUri, title });
+
+    loader.showTitleLoader();
+    await diff.show();
+    loader.removeTitleLoader();
+  }
+
+  @command('Open Diff')
+  async openDiff(leftUri?: string, rightUri?: string, title?: string): Promise<void> {
+    if (localStorage.sidebarShown === '1') {
+      acode.exec('toggle-sidebar');
+    }
+    await this.diff(leftUri, rightUri, title);
   }
 
   @command('Clone')

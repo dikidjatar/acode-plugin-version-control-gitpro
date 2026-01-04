@@ -5,7 +5,7 @@ import { Disposable, IDisposable } from "../base/disposable";
 import { Emitter, Event } from "../base/event";
 import { uriToPath } from "../base/uri";
 import { scm } from "../scm";
-import { SourceControl, SourceControlInputBox, SourceControlProgess, SourceControlResourceDecorations, SourceControlResourceGroup, SourceControlResourceState } from "../scm/api/sourceControl";
+import { SourceControl, SourceControlCommandAction, SourceControlInputBox, SourceControlProgess, SourceControlResourceDecorations, SourceControlResourceGroup, SourceControlResourceState } from "../scm/api/sourceControl";
 import { ActionButton } from "./actionButton";
 import { CommandActions } from "./actions";
 import { ApiRepository } from "./api/api1";
@@ -18,6 +18,7 @@ import { LogOutputChannel } from "./logger";
 import { Operation, OperationKind, OperationManager, OperationResult } from "./operation";
 import { IPushErrorHandlerRegistry } from "./pushError";
 import { IRemoteSourcePublisherRegistry } from "./remotePublisher";
+import { toGitUri } from "./uri";
 import { find, getCommitShortHash, isDescendant, relativePath, toFullPath, toShortPath } from "./utils";
 import { IFileWatcher, watch } from "./watch";
 
@@ -118,6 +119,24 @@ export class Resource implements SourceControlResourceState {
     return this._resourceUri;
   }
 
+  get leftUri(): string | undefined {
+    return this.resources.left;
+  }
+
+  get rightUri(): string | undefined {
+    return this.resources.right;
+  }
+
+  @memoize
+  get command(): SourceControlCommandAction {
+    return this._commandResolver.resolveDefaultCommand(this);
+  }
+
+  @memoize
+  private get resources(): { left: string | undefined; right: string | undefined; original: string | undefined; modified: string | undefined } {
+    return this._commandResolver.getResources(this);
+  }
+
   get resourceGroupType(): ResourceGroupType { return this._resourceGroupType; }
   get type(): Status { return this._type; }
   get original(): string { return this._resourceUri; }
@@ -156,6 +175,7 @@ export class Resource implements SourceControlResourceState {
   }
 
   constructor(
+    private _commandResolver: ResourceCommandResolver,
     private _resourceGroupType: ResourceGroupType,
     private _resourceUri: string,
     private _type: Status,
@@ -163,6 +183,169 @@ export class Resource implements SourceControlResourceState {
   ) {
 
   }
+
+  async openChange(): Promise<void> {
+    const command = this._commandResolver.resolveChangeCommand(this);
+    editorManager.editor.execCommand(command.id, command.arguments);
+  }
+}
+
+class ResourceCommandResolver {
+
+  constructor(private repository: Repository) { }
+
+  resolveDefaultCommand(resource: Resource): SourceControlCommandAction {
+    const gitConfig = config.get('vcgit')!;
+    const openDiffOnClick = gitConfig.openDiffOnClick;
+    return openDiffOnClick ? this.resolveChangeCommand(resource) : this.resolveFileCommand(resource);
+  }
+
+  resolveFileCommand(resource: Resource): SourceControlCommandAction {
+    return {
+      id: 'git.openFile',
+      title: 'Open',
+      arguments: [resource.resourceUri]
+    };
+  }
+
+  resolveChangeCommand(resource: Resource): SourceControlCommandAction {
+    if (!resource.leftUri) {
+      return {
+        id: 'git.openFile',
+        title: 'Open',
+        arguments: [resource.rightUri]
+      }
+    } else {
+      return {
+        id: 'git.openDiff',
+        title: 'Open',
+        arguments: [resource.leftUri, resource.rightUri, this.getTitle(resource)]
+      }
+    }
+  }
+
+  getResources(resource: Resource): { left: string | undefined; right: string | undefined; original: string | undefined; modified: string | undefined } {
+    for (const submodule of this.repository.submodules) {
+      if (Url.join(this.repository.root, submodule.path) === resource.resourceUri) {
+        const original = undefined;
+        const modified = toGitUri(resource.resourceUri, resource.resourceGroupType === ResourceGroupType.Index ? 'index' : 'wt', { submoduleOf: this.repository.root });
+        return { left: original, right: modified, original, modified };
+      }
+    }
+
+    const left = this.getLeftResource(resource);
+    const right = this.getRightResource(resource);
+
+    return {
+      left: left.original ?? left.modified,
+      right: right.original ?? right.modified,
+      original: left.original ?? right.original,
+      modified: left.modified ?? right.modified,
+    };
+  }
+
+  private getLeftResource(resource: Resource): ModifiedOrOriginal {
+    switch (resource.type) {
+      case Status.INDEX_MODIFIED:
+      case Status.INDEX_RENAMED:
+      case Status.INTENT_TO_RENAME:
+      case Status.TYPE_CHANGED:
+        return { original: toGitUri(resource.original, 'HEAD') };
+
+      case Status.MODIFIED:
+        return { original: toGitUri(resource.resourceUri, '~') };
+
+      case Status.DELETED_BY_US:
+      case Status.DELETED_BY_THEM:
+        return { original: toGitUri(resource.resourceUri, '~1') };
+    }
+    return {};
+  }
+
+  private getRightResource(resource: Resource): ModifiedOrOriginal {
+    switch (resource.type) {
+      case Status.INDEX_MODIFIED:
+      case Status.INDEX_ADDED:
+      case Status.INDEX_COPIED:
+      case Status.INDEX_RENAMED:
+        return { modified: toGitUri(resource.resourceUri, '') };
+
+      case Status.INDEX_DELETED:
+      case Status.DELETED:
+        return { original: toGitUri(resource.resourceUri, 'HEAD') };
+
+      case Status.DELETED_BY_US:
+        return { original: toGitUri(resource.resourceUri, '~3') };
+
+      case Status.DELETED_BY_THEM:
+        return { original: toGitUri(resource.resourceUri, '~2') };
+
+      case Status.MODIFIED:
+      case Status.UNTRACKED:
+      case Status.IGNORED:
+      case Status.INTENT_TO_ADD:
+      case Status.INTENT_TO_RENAME:
+      case Status.TYPE_CHANGED: {
+        const uriString = resource.resourceUri;
+        const [indexStatus] = this.repository.indexGroup.resourceStates.filter(r => r.resourceUri === uriString);
+
+        if (indexStatus && indexStatus.renameResourceUri) {
+          return { modified: `file://${indexStatus.renameResourceUri}` };
+        }
+
+        return { modified: `file://${resource.resourceUri}` };
+      }
+      case Status.BOTH_ADDED:
+      case Status.BOTH_MODIFIED:
+        return { modified: `file://${resource.resourceUri}` };
+    }
+
+    return {};
+  }
+
+  private getTitle(resource: Resource): string {
+    const basename = Url.basename(resource.resourceUri);
+
+    switch (resource.type) {
+      case Status.INDEX_MODIFIED:
+      case Status.INDEX_RENAMED:
+      case Status.INDEX_ADDED:
+        return `${basename} (Index)`;
+
+      case Status.MODIFIED:
+      case Status.BOTH_ADDED:
+      case Status.BOTH_MODIFIED:
+        return `${basename} (Working Tree)`;
+
+      case Status.INDEX_DELETED:
+      case Status.DELETED:
+        return `${basename} (Deleted)`;
+
+      case Status.DELETED_BY_US:
+        return `${basename} (Theirs)`;
+
+      case Status.DELETED_BY_THEM:
+        return `${basename} (Ours)`;
+
+      case Status.UNTRACKED:
+        return `${basename} (Untracked)`;
+
+      case Status.INTENT_TO_ADD:
+      case Status.INTENT_TO_RENAME:
+        return `${basename} (Intent to add)`;
+
+      case Status.TYPE_CHANGED:
+        return `${basename} (Type changed)`;
+
+      default:
+        return '';
+    }
+  }
+}
+
+interface ModifiedOrOriginal {
+  modified?: string | undefined;
+  original?: string | undefined;
 }
 
 export interface GitResourceGroup extends SourceControlResourceGroup {
@@ -450,6 +633,7 @@ export class Repository implements IDisposable {
   private isRepositoryHuge: false | { limit: number } = false;
   private didWarnAboutLimit = false;
 
+  private resourceCommandResolver = new ResourceCommandResolver(this);
   private disposables: IDisposable[] = [];
 
   constructor(
@@ -1252,7 +1436,6 @@ export class Repository implements IDisposable {
     }
 
     const ignored = await this.checkIgnore(folderPaths);
-    console.log('[Repository][findKnownHugeFolderPathsToIgnore] ignored=', [...ignored]);
 
     return folderPaths.filter(p => !ignored.has(p));
   }
@@ -1310,7 +1493,6 @@ export class Repository implements IDisposable {
     const shouldIgnore = config.get('vcgit')!.ignoreLimitWarning;
     if (didHitLimit && !shouldIgnore && !this.didWarnAboutLimit) {
       const knownHugeFolderPaths = await this.findKnownHugeFolderPathsToIgnore();
-      console.log('[Repository][getStatus] knownHugeFolderPaths=', knownHugeFolderPaths);
       const gitWarn = `The git repository at "${this.repository.root}" has too many active changes, only a subset of Git features will be enabled.`;
 
       if (knownHugeFolderPaths.length > 0) {
@@ -1347,38 +1529,38 @@ export class Repository implements IDisposable {
 
       switch (raw.x + raw.y) {
         case '??': switch (untrackedChanges) {
-          case 'mixed': return workingTreeGroup.push(new Resource(ResourceGroupType.WorkingTree, uri, Status.UNTRACKED, undefined));
-          case 'separate': return untrackedGroup.push(new Resource(ResourceGroupType.Untracked, uri, Status.UNTRACKED));
+          case 'mixed': return workingTreeGroup.push(new Resource(this.resourceCommandResolver, ResourceGroupType.WorkingTree, uri, Status.UNTRACKED, undefined));
+          case 'separate': return untrackedGroup.push(new Resource(this.resourceCommandResolver, ResourceGroupType.Untracked, uri, Status.UNTRACKED));
           default: return undefined;
         }
         case '!!': switch (untrackedChanges) {
-          case 'mixed': return workingTreeGroup.push(new Resource(ResourceGroupType.WorkingTree, uri, Status.IGNORED, undefined));
-          case 'separate': return untrackedGroup.push(new Resource(ResourceGroupType.Untracked, uri, Status.IGNORED));
+          case 'mixed': return workingTreeGroup.push(new Resource(this.resourceCommandResolver, ResourceGroupType.WorkingTree, uri, Status.IGNORED, undefined));
+          case 'separate': return untrackedGroup.push(new Resource(this.resourceCommandResolver, ResourceGroupType.Untracked, uri, Status.IGNORED));
           default: return undefined;
         }
-        case 'DD': return mergeGroup.push(new Resource(ResourceGroupType.Merge, uri, Status.BOTH_DELETED));
-        case 'AU': return mergeGroup.push(new Resource(ResourceGroupType.Merge, uri, Status.ADDED_BY_US));
-        case 'UD': return mergeGroup.push(new Resource(ResourceGroupType.Merge, uri, Status.DELETED_BY_THEM));
-        case 'UA': return mergeGroup.push(new Resource(ResourceGroupType.Merge, uri, Status.ADDED_BY_THEM));
-        case 'DU': return mergeGroup.push(new Resource(ResourceGroupType.Merge, uri, Status.DELETED_BY_US));
-        case 'AA': return mergeGroup.push(new Resource(ResourceGroupType.Merge, uri, Status.BOTH_ADDED));
-        case 'UU': return mergeGroup.push(new Resource(ResourceGroupType.Merge, uri, Status.BOTH_MODIFIED));
+        case 'DD': return mergeGroup.push(new Resource(this.resourceCommandResolver, ResourceGroupType.Merge, uri, Status.BOTH_DELETED));
+        case 'AU': return mergeGroup.push(new Resource(this.resourceCommandResolver, ResourceGroupType.Merge, uri, Status.ADDED_BY_US));
+        case 'UD': return mergeGroup.push(new Resource(this.resourceCommandResolver, ResourceGroupType.Merge, uri, Status.DELETED_BY_THEM));
+        case 'UA': return mergeGroup.push(new Resource(this.resourceCommandResolver, ResourceGroupType.Merge, uri, Status.ADDED_BY_THEM));
+        case 'DU': return mergeGroup.push(new Resource(this.resourceCommandResolver, ResourceGroupType.Merge, uri, Status.DELETED_BY_US));
+        case 'AA': return mergeGroup.push(new Resource(this.resourceCommandResolver, ResourceGroupType.Merge, uri, Status.BOTH_ADDED));
+        case 'UU': return mergeGroup.push(new Resource(this.resourceCommandResolver, ResourceGroupType.Merge, uri, Status.BOTH_MODIFIED));
       }
 
       switch (raw.x) {
-        case 'M': indexGroup.push(new Resource(ResourceGroupType.Index, uri, Status.INDEX_MODIFIED, undefined)); break;
-        case 'A': indexGroup.push(new Resource(ResourceGroupType.Index, uri, Status.INDEX_ADDED, undefined)); break;
-        case 'D': indexGroup.push(new Resource(ResourceGroupType.Index, uri, Status.INDEX_DELETED, undefined)); break;
-        case 'R': indexGroup.push(new Resource(ResourceGroupType.Index, uri, Status.INDEX_RENAMED, renameUri)); break;
-        case 'C': indexGroup.push(new Resource(ResourceGroupType.Index, uri, Status.INDEX_COPIED, renameUri)); break;
+        case 'M': indexGroup.push(new Resource(this.resourceCommandResolver, ResourceGroupType.Index, uri, Status.INDEX_MODIFIED, undefined)); break;
+        case 'A': indexGroup.push(new Resource(this.resourceCommandResolver, ResourceGroupType.Index, uri, Status.INDEX_ADDED, undefined)); break;
+        case 'D': indexGroup.push(new Resource(this.resourceCommandResolver, ResourceGroupType.Index, uri, Status.INDEX_DELETED, undefined)); break;
+        case 'R': indexGroup.push(new Resource(this.resourceCommandResolver, ResourceGroupType.Index, uri, Status.INDEX_RENAMED, renameUri)); break;
+        case 'C': indexGroup.push(new Resource(this.resourceCommandResolver, ResourceGroupType.Index, uri, Status.INDEX_COPIED, renameUri)); break;
       }
 
       switch (raw.y) {
-        case 'M': workingTreeGroup.push(new Resource(ResourceGroupType.WorkingTree, uri, Status.MODIFIED, renameUri)); break;
-        case 'D': workingTreeGroup.push(new Resource(ResourceGroupType.WorkingTree, uri, Status.DELETED, renameUri)); break;
-        case 'A': workingTreeGroup.push(new Resource(ResourceGroupType.WorkingTree, uri, Status.INTENT_TO_ADD, renameUri)); break;
-        case 'R': workingTreeGroup.push(new Resource(ResourceGroupType.WorkingTree, uri, Status.INTENT_TO_RENAME, renameUri)); break;
-        case 'T': workingTreeGroup.push(new Resource(ResourceGroupType.WorkingTree, uri, Status.TYPE_CHANGED, renameUri)); break;
+        case 'M': workingTreeGroup.push(new Resource(this.resourceCommandResolver, ResourceGroupType.WorkingTree, uri, Status.MODIFIED, renameUri)); break;
+        case 'D': workingTreeGroup.push(new Resource(this.resourceCommandResolver, ResourceGroupType.WorkingTree, uri, Status.DELETED, renameUri)); break;
+        case 'A': workingTreeGroup.push(new Resource(this.resourceCommandResolver, ResourceGroupType.WorkingTree, uri, Status.INTENT_TO_ADD, renameUri)); break;
+        case 'R': workingTreeGroup.push(new Resource(this.resourceCommandResolver, ResourceGroupType.WorkingTree, uri, Status.INTENT_TO_RENAME, renameUri)); break;
+        case 'T': workingTreeGroup.push(new Resource(this.resourceCommandResolver, ResourceGroupType.WorkingTree, uri, Status.TYPE_CHANGED, renameUri)); break;
       }
 
       return undefined;

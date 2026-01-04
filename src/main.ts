@@ -84,7 +84,8 @@ const defaultGitConfig: IGitConfig = {
 	useInotifywait: true,
 	decorationsEnabled: true,
 	promptToSaveFilesBeforeStash: 'always',
-	useCommitInputAsStashMessage: false
+	useCommitInputAsStashMessage: false,
+	openDiffOnClick: true
 }
 
 async function destroy() {
@@ -526,24 +527,12 @@ function initializeMenus(logger: LogOutputChannel): void {
 	// Resource States
 	SCMMenuRegistry.registerMenuItems('scm/resourceState/context', [
 		{
-			command: { id: 'git.stage', title: 'Stage Changes' },
-			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git' && ctx.scmResourceGroup === 'merge',
-			enablement: () => !App.getContext<boolean>('git.operationInProgress')
+			command: { id: 'git.openChange', title: 'Open Changes' },
+			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git' && ctx.scmResourceGroup === 'index'
 		},
 		{
-			command: { id: 'git.stage', title: 'Stage Changes' },
-			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git' && ctx.scmResourceGroup === 'workingTree',
-			enablement: () => !App.getContext<boolean>('git.operationInProgress')
-		},
-		{
-			command: { id: 'git.stage', title: 'Stage Changes' },
-			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git' && ctx.scmResourceGroup === 'untracked',
-			enablement: () => !App.getContext<boolean>('git.operationInProgress')
-		},
-		{
-			command: { id: 'git.unstage', title: 'Unstage Changes' },
-			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git' && ctx.scmResourceGroup === 'index',
-			enablement: () => !App.getContext<boolean>('git.operationInProgress')
+			command: { id: 'git.openChange', title: 'Open Changes' },
+			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git' && ctx.scmResourceGroup === 'workingTree'
 		},
 		{
 			command: { id: 'git.openFile', title: 'Open File' },
@@ -561,6 +550,28 @@ function initializeMenus(logger: LogOutputChannel): void {
 		{
 			command: { id: 'git.openFile', title: 'Open File' },
 			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git' && ctx.scmResourceGroup === 'untracked'
+		},
+		{
+			command: { id: 'git.openHEADFile', title: 'Open File (HEAD)' },
+			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git' && ctx.scmResourceGroup === 'index'
+		},
+		{
+			command: { id: 'git.openHEADFile', title: 'Open File (HEAD)' },
+			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git' && ctx.scmResourceGroup === 'workingTree'
+		},
+		{
+			command: { id: 'git.openHEADFile', title: 'Open File (HEAD)' },
+			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git' && ctx.scmResourceGroup === 'untracked'
+		},
+		{
+			command: { id: 'git.stage', title: 'Stage Changes' },
+			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git' && ctx.scmResourceGroup === 'merge',
+			enablement: () => !App.getContext<boolean>('git.operationInProgress')
+		},
+		{
+			command: { id: 'git.stage', title: 'Stage Changes' },
+			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git' && ctx.scmResourceGroup === 'workingTree',
+			enablement: () => !App.getContext<boolean>('git.operationInProgress')
 		},
 		{
 			command: { id: 'git.clean', title: 'Discard Change' },
@@ -573,17 +584,15 @@ function initializeMenus(logger: LogOutputChannel): void {
 			enablement: () => !App.getContext<boolean>('git.operationInProgress')
 		},
 		{
-			command: { id: 'git.openHEADFile', title: 'Open File (HEAD)' },
-			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git' && ctx.scmResourceGroup === 'index'
+			command: { id: 'git.stage', title: 'Stage Changes' },
+			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git' && ctx.scmResourceGroup === 'untracked',
+			enablement: () => !App.getContext<boolean>('git.operationInProgress')
 		},
 		{
-			command: { id: 'git.openHEADFile', title: 'Open File (HEAD)' },
-			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git' && ctx.scmResourceGroup === 'workingTree'
-		},
-		{
-			command: { id: 'git.openHEADFile', title: 'Open File (HEAD)' },
-			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git' && ctx.scmResourceGroup === 'untracked'
-		},
+			command: { id: 'git.unstage', title: 'Unstage Changes' },
+			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git' && ctx.scmResourceGroup === 'index',
+			enablement: () => !App.getContext<boolean>('git.operationInProgress')
+		}
 	]);
 
 	SCMMenuRegistry.registerMenuItems('scm/resourceFolder/context', [
@@ -1262,6 +1271,12 @@ function gitPluginSettings(): Acode.PluginSettings {
 				value: configs.useCommitInputAsStashMessage,
 				text: 'Git: Use Commit Input As Stash Message',
 				info: 'Controls whether to use the message from the commit input box as the default stash message.'
+			},
+			{
+				key: 'openDiffOnClick',
+				checkbox: configs.openDiffOnClick,
+				text: 'Git: Open Diff On Click',
+				info: 'Controls whether the diff editor should be opened when clicking a change. Otherwise the regular editor will be opened.'
 			}
 		],
 		cb(key: string, value: unknown) {

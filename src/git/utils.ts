@@ -242,6 +242,12 @@ export function getCommitShortHash(hash: string): string {
 	return hash.substring(0, shortHashLength);
 }
 
+export function getModeForFile(filename: string) {
+	const { getModeForPath } = ace.require('ace/ext/modelist');
+	const { name } = getModeForPath(filename);
+	return `ace/mode/${name}`;
+}
+
 interface ILimitedTaskFactory<T> {
 	factory: () => Promise<T>;
 	c: (value: T | Promise<T>) => void;

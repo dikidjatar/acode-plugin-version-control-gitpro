@@ -8,6 +8,7 @@
   "license": "MIT",
   "dependencies": {
     "@acode-app/types": "^1.11.2",
+    "diff": "^8.0.2",
     "html-tag-js": "^1.8.2"
   },
   "devDependencies": {
