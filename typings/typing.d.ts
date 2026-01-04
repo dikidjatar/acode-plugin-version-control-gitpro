@@ -3,6 +3,7 @@ declare const strings: { [key: string]: string };
 declare const Terminal: Terminal;
 declare const Executor: Executor;
 declare const system: any;
+declare const cordova: any;
 
 interface Acode {
   addIcon(iconName: string, iconSrc: string, options: { monochrome: boolean }): void;
