@@ -101,7 +101,7 @@ export class GitFileSystem {
     this.cache = cache;
   }
 
-  async readFile(url: string): Promise<string | Uint8Array<ArrayBuffer>> {
+  async readFile(url: string): Promise<string> {
     await this.model.isInitialized;
 
     const { path, ref, submoduleOf } = fromGitUri(url);
@@ -113,12 +113,10 @@ export class GitFileSystem {
         throw new Error('File not found.');
       }
 
-      const encoder = new TextEncoder();
-
       if (ref === 'index') {
-        return encoder.encode(await repository.diffIndexWithHEAD(path));
+        return await repository.diffIndexWithHEAD(path);
       } else {
-        return encoder.encode(await repository.diffWithHEAD(path));
+        return await repository.diffWithHEAD(path);
       }
     }
 
@@ -140,7 +138,7 @@ export class GitFileSystem {
       // Empty tree
       if (ref === await repository.getEmptyTree()) {
         this.logger.warn(`[GitFileSystemProvider][readFile] Empty tree - ${url}`);
-        return new Uint8Array(0);
+        return '';
       }
 
       // File does not exist in git. This could be because the file is untracked or ignored
@@ -193,8 +191,12 @@ export class GitFileSystemProvider implements Acode.FileSystem {
   readFile(): Promise<ArrayBuffer>;
   readFile(encoding: "utf-8"): Promise<string>;
   readFile(encoding: "json"): Promise<unknown>;
-  readFile(encoding?: any): Promise<any> {
-    return this.fs.readFile(this.url);
+  async readFile(encoding?: any): Promise<any> {
+    const result = await this.fs.readFile(this.url);
+    if (encoding === 'json') {
+      return JSON.parse(result);
+    }
+    return result;
   }
 
   async writeFile(content: string | ArrayBuffer): Promise<void> {
