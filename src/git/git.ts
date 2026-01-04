@@ -3,7 +3,7 @@ import { Disposable, IDisposable } from "../base/disposable";
 import { Emitter, Event } from "../base/event";
 import * as process from '../base/executor';
 import { isUri, uriToPath } from "../base/uri";
-import { Commit as ApiCommit, RefQuery as ApiRefQuery, Branch, CommitOptions, ForcePushMode, GitErrorCodes, LogOptions, Ref, RefType, Remote } from "./api/git";
+import { Commit as ApiCommit, RefQuery as ApiRefQuery, Branch, Change, CommitOptions, ForcePushMode, GitErrorCodes, LogOptions, Ref, RefType, Remote, Status } from "./api/git";
 import { LogOutputChannel } from "./logger";
 import { assign, groupBy, isAbsolute, isDescendant, Limiter, Mutable, pathEquals, relativePath, splitInChunks, toFullPath, Versions } from "./utils";
 
@@ -651,6 +651,98 @@ function parseGitDiffShortStat(data: string): CommitShortStat {
   return { files: parseInt(files), insertions: parseInt(insertions ?? '0'), deletions: parseInt(deletions ?? '0') };
 }
 
+export interface LsTreeElement {
+  mode: string;
+  type: string;
+  object: string;
+  size: string;
+  file: string;
+}
+
+export function parseLsTree(raw: string): LsTreeElement[] {
+  return raw.split('\n')
+    .filter(l => !!l)
+    .map(line => /^(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(.*)$/.exec(line)!)
+    .filter(m => !!m)
+    .map(([, mode, type, object, size, file]) => ({ mode, type, object, size, file }));
+}
+
+interface LsFilesElement {
+  mode: string;
+  object: string;
+  stage: string;
+  file: string;
+}
+
+export function parseLsFiles(raw: string): LsFilesElement[] {
+  return raw.split('\n')
+    .filter(l => !!l)
+    .map(line => /^(\S+)\s+(\S+)\s+(\S+)\s+(.*)$/.exec(line)!)
+    .filter(m => !!m)
+    .map(([, mode, object, stage, file]) => ({ mode, object, stage, file }));
+}
+
+function parseGitChanges(repositoryRoot: string, raw: string): Change[] {
+  let index = 0;
+  const result: Change[] = [];
+  const segments = raw.trim().split('\x00').filter(s => s);
+
+  segmentsLoop:
+  while (index < segments.length - 1) {
+    const change = segments[index++];
+    const resourcePath = segments[index++];
+
+    if (!change || !resourcePath) {
+      break;
+    }
+
+    const originalUri = resourcePath.startsWith('/') ? resourcePath : Url.join(repositoryRoot, resourcePath);
+
+    let uri = originalUri;
+    let renameUri = originalUri;
+    let status = Status.UNTRACKED;
+
+    // Copy or Rename status comes with a number (ex: 'R100').
+    // We don't need the number, we use only first character of the status.
+    switch (change[0]) {
+      case 'A':
+        status = Status.INDEX_ADDED;
+        break;
+
+      case 'M':
+        status = Status.MODIFIED;
+        break;
+
+      case 'D':
+        status = Status.DELETED;
+        break;
+
+      // Rename contains two paths, the second one is what the file is renamed/copied to.
+      case 'R': {
+        if (index >= segments.length) {
+          break;
+        }
+
+        const newPath = segments[index++];
+        if (!newPath) {
+          break;
+        }
+
+        status = Status.INDEX_RENAMED;
+        uri = renameUri = newPath.startsWith('/') ? newPath : Url.join(repositoryRoot, newPath);
+        break;
+      }
+      default:
+        // Unknown status
+        break segmentsLoop;
+    }
+
+    result.push({ status, uri, originalUri, renameUri });
+  }
+
+  return result;
+}
+
 const REFS_FORMAT = '%(refname)%00%(objectname)%00%(*objectname)';
 const REFS_WITH_DETAILS_FORMAT = `${REFS_FORMAT}%00%(parent)%00%(*parent)%00%(authorname)%00%(*authorname)%00%(committerdate:unix)%00%(*committerdate:unix)%00%(subject)%00%(*subject)`;
 
@@ -869,6 +961,89 @@ export class Repository {
     return parseGitCommits(result.stdout);
   }
 
+  async buffer(ref: string, filePath: string): Promise<string> {
+    const relativePath = this.sanitizeRelativePath(filePath);
+    const child = this.stream(['show', '--textconv', `${ref}:${relativePath}`]);
+
+    if (!child.stdout) {
+      return Promise.reject('Can\'t open file from git');
+    }
+
+    const { exitCode, stdout, stderr } = await exec(child);
+
+    if (exitCode) {
+      const err = new GitError({
+        message: 'Could not show object.',
+        exitCode
+      });
+
+      if (/exists on disk, but not in/.test(stderr)) {
+        err.gitErrorCode = GitErrorCodes.WrongCase;
+      }
+
+      return Promise.reject(err);
+    }
+
+    return stdout;
+  }
+
+  async getObjectDetails(treeish: string, path: string): Promise<{ mode: string; object: string; size: number }> {
+    if (!treeish || treeish === ':1' || treeish === ':2' || treeish === ':3') { // index
+      const elements = await this.lsfiles(path);
+
+      if (elements.length === 0) {
+        throw new GitError({ message: 'Path not known by git', gitErrorCode: GitErrorCodes.UnknownPath });
+      }
+
+      const { mode, object } = treeish !== ''
+        ? elements.find(e => e.stage === treeish.substring(1)) ?? elements[0]
+        : elements[0];
+
+      const catFile = await this.exec(['cat-file', '-s', object]);
+      const size = parseInt(catFile.stdout);
+
+      return { mode, object, size };
+    }
+
+    const elements = await this.lstree(treeish, path);
+
+    if (elements.length === 0) {
+      throw new GitError({ message: 'Path not known by git', gitErrorCode: GitErrorCodes.UnknownPath });
+    }
+
+    const { mode, object, size } = elements[0];
+    return { mode, object, size: parseInt(size) || 0 };
+  }
+
+  async lstree(treeish: string, path?: string, options?: { recursive?: boolean }): Promise<LsTreeElement[]> {
+    const args = ['ls-tree', '-l'];
+
+    if (options?.recursive) {
+      args.push('-r');
+    }
+
+    args.push(treeish);
+
+    if (path) {
+      args.push('--', this.sanitizeRelativePath(path));
+    }
+
+    const { stdout } = await this.exec(args);
+    return parseLsTree(stdout);
+  }
+
+  async lsfiles(path: string): Promise<LsFilesElement[]> {
+    const args = ['ls-files', '--stage'];
+    const relativePath = this.sanitizeRelativePath(path);
+
+    if (relativePath) {
+      args.push('--', relativePath);
+    }
+
+    const { stdout } = await this.exec(args);
+    return parseLsFiles(stdout);
+  }
+
   async apply(patch: string, reverse?: boolean): Promise<void> {
     const args = ['apply', patch];
 
@@ -885,6 +1060,50 @@ export class Repository {
 
       throw err;
     }
+  }
+
+  diffWithHEAD(): Promise<Change[]>;
+  diffWithHEAD(path: string): Promise<string>;
+  diffWithHEAD(path?: string | undefined): Promise<string | Change[]>;
+  async diffWithHEAD(path?: string | undefined): Promise<string | Change[]> {
+    if (!path) {
+      return await this.diffFiles(false);
+    }
+
+    const args = ['diff', '--', this.sanitizeRelativePath(path)];
+    const result = await this.exec(args);
+    return result.stdout;
+  }
+
+  diffIndexWithHEAD(): Promise<Change[]>;
+  diffIndexWithHEAD(path: string): Promise<string>;
+  diffIndexWithHEAD(path?: string | undefined): Promise<Change[]>;
+  async diffIndexWithHEAD(path?: string): Promise<string | Change[]> {
+    if (!path) {
+      return await this.diffFiles(true);
+    }
+
+    const args = ['diff', '--cached', '--', this.sanitizeRelativePath(path)];
+    const result = await this.exec(args);
+    return result.stdout;
+  }
+
+  private async diffFiles(cached: boolean, ref?: string): Promise<Change[]> {
+    const args = ['diff', '--name-status', '-z', '--diff-filter=ADMR'];
+    if (cached) {
+      args.push('--cached');
+    }
+
+    if (ref) {
+      args.push(ref);
+    }
+
+    const gitResult = await this.exec(args);
+    if (gitResult.exitCode) {
+      return [];
+    }
+
+    return parseGitChanges(this.repositoryRoot, gitResult.stdout);
   }
 
   async add(paths: string[], opts?: { update?: boolean }): Promise<void> {

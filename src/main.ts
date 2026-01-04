@@ -8,6 +8,7 @@ import { AskPass } from './git/askpass';
 import { CommandCenter } from './git/commands';
 import { GitDecorations } from './git/decorationProvider';
 import { AcodeFileDecorationService } from './git/fileDecorationService';
+import { GitFileSystem, GitFileSystemProvider } from './git/fileSystemProvider';
 import { findGit, Git, IGit } from './git/git';
 import { GitEditor } from './git/gitEditor';
 import { createIPCServer, IIPCServer } from './git/ipc/ipcServer';
@@ -17,7 +18,7 @@ import { joinUrl } from './git/utils';
 import { scm, SCMMenuContext, SCMMenuRegistry } from './scm';
 import { SourceControlViewContainer } from './scm/api/sourceControl';
 
-const fs = acode.require('fs');
+const fsOperation = acode.require('fs');
 const Url = acode.require('Url');
 
 const ALPINE_HOME = `/data/user/0/${window.BuildInfo.packageName}/files/alpine/home`;
@@ -156,10 +157,17 @@ async function createModel(logger: LogOutputChannel, disposables: IDisposable[])
 		logger.info(lines.join('\n'));
 	}, git, disposables);
 
+	const gitFs = new GitFileSystem(model, logger);
 	const decorationServics = new AcodeFileDecorationService();
-	disposables.push(decorationServics);
-	disposables.push(new CommandCenter(git, model, logger));
-	disposables.push(new GitDecorations(model, decorationServics));
+	disposables.push(
+		gitFs,
+		decorationServics,
+		new CommandCenter(git, model, logger),
+		new GitDecorations(model, decorationServics)
+	);
+
+	fsOperation.extend(GitFileSystemProvider.test, (url) => new GitFileSystemProvider(url, gitFs));
+	disposables.push(Disposable.toDisposable(() => fsOperation.remove(GitFileSystemProvider.test)));
 
 	checkGitVersion(info);
 
@@ -170,7 +178,7 @@ async function isGitRepository(folder: Acode.Folder): Promise<boolean> {
 	const dotGit = joinUrl(folder.url, '.git');
 
 	try {
-		const dotGitStat = await fs(dotGit).stat();
+		const dotGitStat = await fsOperation(dotGit).stat();
 		return dotGitStat.isDirectory;
 	} catch (e) {
 		return false;
@@ -206,8 +214,8 @@ async function warnAboutMissingGit(): Promise<void> {
 }
 
 async function setupDirectory() {
-	const homeFs = fs(`file://${ALPINE_HOME}`);
-	const vcgitFs = fs(`file://${ALPINE_HOME}/.vcgit`);
+	const homeFs = fsOperation(`file://${ALPINE_HOME}`);
+	const vcgitFs = fsOperation(`file://${ALPINE_HOME}/.vcgit`);
 	if (!await vcgitFs.exists()) {
 		await homeFs.createDirectory('.vcgit');
 	}
@@ -554,6 +562,18 @@ function initializeMenus(logger: LogOutputChannel): void {
 			command: { id: 'git.clean', title: 'Discard Changes' },
 			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git' && ctx.scmResourceGroup === 'untracked',
 			enablement: () => !App.getContext<boolean>('git.operationInProgress')
+		},
+		{
+			command: { id: 'git.openHEADFile', title: 'Open File (HEAD)' },
+			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git' && ctx.scmResourceGroup === 'index'
+		},
+		{
+			command: { id: 'git.openHEADFile', title: 'Open File (HEAD)' },
+			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git' && ctx.scmResourceGroup === 'workingTree'
+		},
+		{
+			command: { id: 'git.openHEADFile', title: 'Open File (HEAD)' },
+			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git' && ctx.scmResourceGroup === 'untracked'
 		},
 	]);
 

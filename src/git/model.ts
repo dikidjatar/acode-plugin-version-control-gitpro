@@ -1,8 +1,8 @@
 import { App, WorkspaceFoldersChangeEvent } from "../base/app";
+import { config } from "../base/config";
 import { debounce, memoize, sequentialize } from "../base/decorators";
 import { Disposable, IDisposable } from "../base/disposable";
 import { Emitter, Event } from "../base/event";
-import { config } from "../base/config";
 import { isUri, uriToPath } from "../base/uri";
 import { SourceControl, SourceControlResourceGroup } from "../scm/api/sourceControl";
 import { ApiRepository } from "./api/api1";
@@ -13,6 +13,7 @@ import { LogOutputChannel } from "./logger";
 import { IPushErrorHandlerRegistry } from "./pushError";
 import { IRemoteSourcePublisherRegistry } from "./remotePublisher";
 import { IRepositoryResolver, Repository } from "./repository";
+import { fromGitUri, isGitUri } from "./uri";
 import { isDescendant, joinUrl, pathEquals } from "./utils";
 
 const fs = acode.require('fs');
@@ -30,6 +31,11 @@ class RepositoryPick {
   }
 
   constructor(private readonly repository: Repository) { }
+}
+
+export interface ModelChangeEvent {
+  repository: Repository;
+  path: string;
 }
 
 interface OpenRepository extends IDisposable {
@@ -80,6 +86,9 @@ export class Model implements IRepositoryResolver, IRemoteSourcePublisherRegistr
   private _onDidCloseRepository = new Emitter<Repository>();
   readonly onDidCloseRepository: Event<Repository> = this._onDidCloseRepository.event;
 
+  private _onDidChangeRepository = new Emitter<ModelChangeEvent>();
+  readonly onDidChangeRepository: Event<ModelChangeEvent> = this._onDidChangeRepository.event;
+
   private openRepositories: OpenRepository[] = [];
   get repositories(): Repository[] { return this.openRepositories.map(r => r.repository); }
 
@@ -102,6 +111,15 @@ export class Model implements IRepositoryResolver, IRemoteSourcePublisherRegistr
     this._state = state;
     this._onDidChangeState.fire(state);
     App.setContext('git.state', state);
+  }
+
+  @memoize
+  get isInitialized(): Promise<void> {
+    if (this._state === 'initialized') {
+      return Promise.resolve();
+    }
+
+    return Event.toPromise(Event.filter(this.onDidChangeState, s => s === 'initialized')) as Promise<any>;
   }
 
   private remoteSourcePublishers = new Set<RemoteSourcePublisher>();
@@ -321,6 +339,8 @@ export class Model implements IRepositoryResolver, IRemoteSourcePublisherRegistr
   private open(repository: Repository): void {
     this.logger.info(`[Model][open] Repository: ${repository.root}`);
 
+    const changeListener = repository.onDidChangeRepository(path => this._onDidChangeRepository.fire({ repository, path }));
+
     const gitConfig = config.get('vcgit')!;
     const shouldDetectSubmodules = gitConfig.detectSubmodules;
     const submodulesLimit = gitConfig.detectSubmodulesLimit;
@@ -365,6 +385,7 @@ export class Model implements IRepositoryResolver, IRemoteSourcePublisherRegistr
     updateOperationInProgressContext();
 
     const dispose = () => {
+      changeListener.dispose();
       statusListener.dispose();
       operationListener.dispose();
       repository.dispose();
@@ -453,7 +474,15 @@ export class Model implements IRepositoryResolver, IRemoteSourcePublisherRegistr
     }
 
     if (typeof hint === 'string') {
-      const path = isUri(hint) ? uriToPath(hint) : hint;
+      let path: string;
+
+      if (isGitUri(hint)) {
+        path = fromGitUri(hint).path;
+      } else if (isUri(hint)) {
+        path = uriToPath(hint);
+      } else {
+        path = hint;
+      }
 
       outer:
       for (const liveRepository of this.openRepositories.sort((a, b) => b.repository.root.length - a.repository.root.length)) {

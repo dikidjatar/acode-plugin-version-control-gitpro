@@ -10,6 +10,7 @@ import { HintItem, showInputHints } from "./hints";
 import { LogOutputChannel } from "./logger";
 import { Model } from "./model";
 import { Repository, Resource, ResourceGroupType } from "./repository";
+import { toGitUri } from "./uri";
 import { fromNow, grep, isDescendant, pathEquals } from "./utils";
 
 const fileBrowser = acode.require('fileBrowser') as any;
@@ -544,6 +545,12 @@ function getCheckoutRefProcessor(repository: Repository, type: string): RefProce
   }
 }
 
+function getModeForFile(filename: string) {
+  const { getModeForPath } = ace.require('ace/ext/modelist');
+  const { name } = getModeForPath(filename);
+  return `ace/mode/${name}`;
+}
+
 export class CommandCenter {
 
   private disposables: IDisposable[];
@@ -729,6 +736,43 @@ export class CommandCenter {
 
     if (!resource) {
       return;
+    }
+
+    const basename = Url.basename(resource.resourceUri);
+    const title = `${basename} (HEAD)`;
+    let HEAD: string | undefined = undefined;
+
+    switch (resource.type) {
+      case Status.INDEX_MODIFIED:
+      case Status.INDEX_RENAMED:
+      case Status.INTENT_TO_RENAME:
+      case Status.TYPE_CHANGED:
+        HEAD = toGitUri(resource.original, 'HEAD');
+        break;
+
+      case Status.MODIFIED:
+        HEAD = toGitUri(resource.resourceUri, '~');
+        break;
+
+      case Status.DELETED_BY_US:
+      case Status.DELETED_BY_THEM:
+        HEAD = toGitUri(resource.resourceUri, '~1');
+        break;
+
+      default:
+        break;
+    }
+
+    if (!HEAD) {
+      acode.pushNotification('', `HEAD version of "${basename}" is not available.`, { type: 'warning' });
+      return;
+    }
+
+    const file = new EditorFile(title, { uri: HEAD, editable: false });
+    file.setMode(getModeForFile(basename!));
+
+    if (localStorage.sidebarShown === '1') {
+      acode.exec('toggle-sidebar');
     }
   }
 

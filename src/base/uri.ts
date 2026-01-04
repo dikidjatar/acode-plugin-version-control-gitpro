@@ -11,7 +11,7 @@ export function isUri(thing: unknown): thing is string {
 }
 
 export function uriToPath(uri: unknown): string {
-  if (!isUri(uri)) {
+  if (!uri || typeof uri !== 'string') {
     throw new Error(`Invalid uri: ${uri}`);
   }
 
@@ -50,6 +50,10 @@ export function uriToPath(uri: unknown): string {
       return removeTrailingSlash('/sdcard' + path.slice('/storage/emulated/0'.length));
     }
     return removeTrailingSlash(path);
+  }
+
+  if (uri.startsWith('/')) {
+    return uri;
   }
 
   throw new Error(`Unsupported uri: ${uri}`);
