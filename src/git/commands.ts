@@ -1534,31 +1534,31 @@ export class CommandCenter {
     } else if (choice === checkoutDetached) {
       return this._checkout(repository, { detached: true });
     } else {
-      const item = choice as CheckoutItem;
+      const checkoutItem = choice as CheckoutItem;
 
       try {
-        await item.run(repository, opts);
+        await checkoutItem.run(repository, opts);
       } catch (err: any) {
         if (err.gitErrorCode !== GitErrorCodes.DirtyWorkTree) {
           throw err;
         }
 
-        const stash = 'Stash & Checkout';
-        const migrate = 'Migrate Changes';
-        const force = 'Force Checkout';
-
-        const choice = await new Promise<string>((c) => {
-          acode.alert('WARNING', 'Your local changes would be overwritten by checkout.', async () => {
-            c(await select('', [stash, migrate, force]));
-          });
-        });
+        const stash = item('Stash & Checkout');
+        const migrate = item('Migrate Changes');
+        const force = item('Force Checkout');
+        const choice = await showDialogMessage('WARNING', 'Your local changes would be overwritten by checkout.', stash, migrate, force);
 
         if (choice === force) {
           await this.cleanAll(repository);
-          await item.run(repository, opts);
+          await checkoutItem.run(repository, opts);
         } else if (choice === stash || choice === migrate) {
-          //TODO: handle stash
-          acode.alert('INFO', 'not implemented');
+          if (await this._stash(repository, true)) {
+            await checkoutItem.run(repository, opts);
+
+            if (choice === migrate) {
+              await this.stashPopLatest(repository);
+            }
+          }
         }
       }
     }
