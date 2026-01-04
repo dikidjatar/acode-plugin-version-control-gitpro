@@ -68,6 +68,7 @@ class SCMResourceGroup implements ISCMResourceGroup {
 class SCMResource implements ISCMResource {
 
   constructor(
+    private readonly mainScm: IMainSCM,
     private readonly sourceControlHandle: number,
     private readonly groupHandle: number,
     private readonly handle: number,
@@ -76,6 +77,10 @@ class SCMResource implements ISCMResource {
     readonly decorations: ISCMResourceDecoration
   ) {
 
+  }
+
+  open(): boolean {
+    return this.mainScm.executeResourceCommand(this.sourceControlHandle, this.groupHandle, this.handle);
   }
 
   toJSON() {
@@ -129,6 +134,7 @@ class SCMProvider implements ISCMProvider {
   private features: SCMProviderFeatures = {};
 
   constructor(
+    private readonly mainScm: IMainSCM,
     private readonly _handle: number,
     private readonly _providerId: string,
     private readonly _label: string,
@@ -218,6 +224,7 @@ class SCMProvider implements ISCMProvider {
           } satisfies ISCMResourceDecoration;
 
           return new SCMResource(
+            this.mainScm,
             this.handle,
             groupHandle,
             handle,
@@ -275,7 +282,7 @@ export class SCM {
   }
 
   registerSourceControl(handle: number, id: string, label: string, rootUri: string | undefined, icon: string | undefined): void {
-    const provider = new SCMProvider(handle, id, label, rootUri, icon);
+    const provider = new SCMProvider(this._mainScm, handle, id, label, rootUri, icon);
     const repository = this.scmService.registerSCMProvider(provider);
     this._repositories.set(handle, repository);
 

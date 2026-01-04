@@ -33,6 +33,7 @@ export interface SourceControlResourceGroup {
 export interface SourceControlResourceState {
   readonly resourceUri: string;
   decorations?: SourceControlResourceDecorations;
+  command?: SourceControlCommandAction;
 }
 
 export interface SourceControlResourceDecorations {

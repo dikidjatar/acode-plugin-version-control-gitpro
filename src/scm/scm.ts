@@ -5,7 +5,7 @@ import { SyncDescriptor } from '../base/descriptor';
 import { Disposable, IDisposable } from '../base/disposable';
 import { Emitter, Event } from '../base/event';
 import { SettingsItems, SettingsPage } from '../base/settingsPage';
-import { SourceControl, SourceControlActionButton, SourceControlInputBox, SourceControlMenuItem, SourceControlProgess, SourceControlResourceDecorations, SourceControlResourceGroup, SourceControlResourceState, SourceControlViewContainer } from './api/sourceControl';
+import { SourceControl, SourceControlActionButton, SourceControlCommandAction, SourceControlInputBox, SourceControlMenuItem, SourceControlProgess, SourceControlResourceDecorations, SourceControlResourceGroup, SourceControlResourceState, SourceControlViewContainer } from './api/sourceControl';
 import { SCMMenuService } from './scmMenuService';
 import { SCM } from './scmProvider';
 import { ScmRepositoriesView } from './scmRepositoriesView';
@@ -166,6 +166,7 @@ class SourceControlResourceGroupImpl implements SourceControlResourceGroup {
   #scm: SCM;
 
   private _resourceStatesMap = new Map<ResourceStateHandle, SourceControlResourceState>();
+  private _resourceStatesCommandsMap = new Map<ResourceStateHandle, SourceControlCommandAction>();
 
   private readonly _onDidUpdateResourceStates = new Emitter<void>();
   readonly onDidUpdateResourceStates = this._onDidUpdateResourceStates.event;
@@ -213,6 +214,16 @@ class SourceControlResourceGroupImpl implements SourceControlResourceGroup {
     return this._resourceStatesMap.get(handle);
   }
 
+  executeResourceCommand(handle: number): boolean {
+    const command = this._resourceStatesCommandsMap.get(handle);
+
+    if (!command) {
+      return false;
+    }
+
+    return editorManager.editor.execCommand(command.id, command.arguments);
+  }
+
   _takeResourceStateSnapshot(): SCMRawResourceSplice[] {
     const snapshot = [...this.resourceStates].sort(compareResourceStates);
     const diffs = sortedDiff(this._resourceSnapshot, snapshot, compareResourceStates);
@@ -223,6 +234,11 @@ class SourceControlResourceGroupImpl implements SourceControlResourceGroup {
         this._resourceStatesMap.set(handle, r);
 
         const sourceUri = r.resourceUri;
+
+        if (r.command) {
+          this._resourceStatesCommandsMap.set(handle, r.command);
+        }
+
         const icon = r.decorations?.icon;
         const strikeThrough = r.decorations && !!r.decorations.strikeThrough;
         const letter = r.decorations?.letter;
@@ -247,6 +263,7 @@ class SourceControlResourceGroupImpl implements SourceControlResourceGroup {
 
       for (const handle of handlesToDelete) {
         this._resourceStatesMap.delete(handle);
+        this._resourceStatesCommandsMap.delete(handle);
       }
     }
 
@@ -588,6 +605,23 @@ class MainSCM implements IMainSCM {
 
     const inputBox = sourceControl.inputBox as SourceControlInputBoxImpl;
     inputBox.onInputBoxValueChange(value);
+  }
+
+  executeResourceCommand(sourceControlHandle: number, groupHandle: number, handle: number): boolean {
+    console.log('MainSCM#$executeResourceCommand', sourceControlHandle, groupHandle, handle);
+    const sourceControl = this._sourceControls.get(sourceControlHandle);
+
+    if (!sourceControl) {
+      return false;
+    }
+
+    const group = sourceControl.getResourceGroup(groupHandle);
+
+    if (!group) {
+      return false;
+    }
+
+    return group.executeResourceCommand(handle);
   }
 }
 

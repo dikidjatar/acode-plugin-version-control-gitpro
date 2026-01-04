@@ -27,6 +27,7 @@ export interface ISCMResource {
   readonly resourceGroup: ISCMResourceGroup;
   readonly sourceUri: string;
   readonly decorations: ISCMResourceDecoration;
+  open(): boolean;
 }
 
 export interface ISCMResourceGroup {
@@ -307,4 +308,5 @@ export const enum SCMMarshalledId {
 export interface IMainSCM {
   setSelectedSourceControl(selectedSourceControlHandle: number | undefined): void;
   onInputBoxValueChange(sourceControlHandle: number, value: string): void;
+  executeResourceCommand(sourceControlHandle: number, groupHandle: number, handle: number): boolean;
 }

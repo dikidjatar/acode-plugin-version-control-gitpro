@@ -817,7 +817,7 @@ export class SCMView extends Disposable.Disposable implements IView {
       this.toggleResourceGroup(e.element);
       return;
     } else if (isSCMResource(e.element)) {
-      return;
+      e.element.open();
     } else if (isSCMResourceNode(e.element)) {
       const node = e.element;
       if (this.expandedNodes.has(node)) {
