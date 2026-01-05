@@ -133,7 +133,7 @@ export class UnifiedDiff {
   }
 
   private generateDiff(oldText: string, newText: string): void {
-    const diffs = Diff.diffLines(newText, oldText, { newlineIsToken: false });
+    const diffs = Diff.diffLines(oldText, newText, { newlineIsToken: false });
 
     let currentLine: number = 0;
     let oldLineCounter: number = 1;
@@ -146,25 +146,25 @@ export class UnifiedDiff {
       }
 
       if (diff.removed) {
-        this.additions += diff.count;
-
-        lines.forEach(line => {
-          this.content += line + "\n";
-          this.markers.push({ start: currentLine, end: currentLine + 1, type: 'added' });
-          this.lines.push({ oldLine: "", newLine: newLineCounter });
-
-          newLineCounter++;
-          currentLine++;
-        });
-      } else if (diff.added) {
         this.deletions += diff.count;
 
         lines.forEach(line => {
           this.content += line + "\n";
           this.markers.push({ start: currentLine, end: currentLine + 1, type: 'deleted' });
-          this.lines.push({ oldLine: oldLineCounter, newLine: "" });
+          this.lines.push({ oldLine: oldLineCounter, newLine: '' });
 
           oldLineCounter++;
+          currentLine++;
+        });
+      } else if (diff.added) {
+        this.additions += diff.count;
+
+        lines.forEach(line => {
+          this.content += line + "\n";
+          this.markers.push({ start: currentLine, end: currentLine + 1, type: 'added' });
+          this.lines.push({ newLine: newLineCounter, oldLine: '' });
+
+          newLineCounter++;
           currentLine++;
         });
       } else {
