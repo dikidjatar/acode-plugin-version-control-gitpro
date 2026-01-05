@@ -1,5 +1,24 @@
 # ChangeLog
 
+## [2.2.0] - 2026-01-05
+
+Features Added:
+- Git File System support (git:// URI scheme) for accessing files from any Git ref (branches, tags, commits)
+- Diff preview and visualization with file tab decorations
+- Complete Git stash management (save, pop, drop, apply)
+- New SCM menu items: "Open File (HEAD)", "Show Changes"
+- New commands: `git.openChanges`, `git.diff`, `git.openDiff`, `git.stash`
+- New settings: `promptToSaveFilesBeforeStash: 'always' | 'staged' | 'never'`, `useCommitInputAsStashMessage`, `openDiffOnClick`
+- Extended public Git API with `buffer()`, `getObjectDetails()`, diff methods
+- URI conversion utilities: `toGitUri()`, `fromGitUri()`
+- Automatic stash handling on checkout with uncommitted changes
+- Migrate changes option for branch switching
+- Enhanced resource interaction with click-to-open functionality
+
+Bug Fixes:
+- Improved URI handling
+- **Error handling for checkout operations**: Better error messages and handling for checkout operations with stash/migrate options
+
 ## [2.1.2] - 2026-01-01
 - Added support for monochrome icon options
 - Fixed sync and publish commands

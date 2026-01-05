@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-2.1.2-blue.svg)
+![Version](https://img.shields.io/badge/version-2.2.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Acode](https://img.shields.io/badge/Acode-Compatible-orange.svg)
 
@@ -14,6 +14,8 @@
 </div>
 
 **Git SCM v2.0.0** is a complete rewrite that communicates directly with the native Git binary installed on your system, providing full Git compatibility. This plugin executes real Git commands through Acode's Executor API, ensuring 100% Git compatibility. Unlike JavaScript-based solutions (isomorphic-git), this plugin communicates directly with your system Git installation for full compatibility and optimal performance.
+
+> ⚠️ **IMPORTANT WARNING**: Before updating, please uninstall the previous version first to avoid complications and errors due to changes in settings and configuration. I will improve this in the future. For now, remove the old version and reinstall.
 
 # Screenshoots
 <div align="center" style="display: flex; overflow-x: auto; gap: 10px; padding: 10px;">
