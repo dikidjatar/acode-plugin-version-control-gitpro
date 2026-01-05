@@ -2,7 +2,7 @@ import { config, ConfigurationChangeEvent } from "../base/config";
 import { Disposable, IDisposable } from "../base/disposable";
 import { Emitter, Event } from "../base/event";
 import * as process from '../base/executor';
-import { isUri, uriToPath } from "../base/uri";
+import { uriToPath } from "../base/uri";
 import { Commit as ApiCommit, RefQuery as ApiRefQuery, Branch, Change, CommitOptions, ForcePushMode, GitErrorCodes, LogOptions, Ref, RefType, Remote, Status } from "./api/git";
 import { LogOutputChannel } from "./logger";
 import { assign, groupBy, isAbsolute, isDescendant, Limiter, Mutable, pathEquals, relativePath, splitInChunks, toFullPath, Versions } from "./utils";
@@ -413,11 +413,7 @@ export class Git {
     const cwd = options.cwd;
     if (typeof cwd === 'undefined') return cwd;
 
-    if (isUri(cwd)) {
-      return uriToPath(cwd);
-    }
-
-    return undefined;
+    return uriToPath(cwd);
   }
 
   private log(output: string): void {

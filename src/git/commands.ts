@@ -1,6 +1,6 @@
 import { config } from "../base/config";
 import { Disposable, IDisposable } from "../base/disposable";
-import { isUri, uriToPath } from "../base/uri";
+import { toFileUrl, uriToPath } from "../base/uri";
 import { SourceControl, SourceControlResourceState } from "../scm/api/sourceControl";
 import { ApiRepository } from "./api/api1";
 import { Branch, CommitOptions, ForcePushMode, GitErrorCodes, Ref, RefType, Remote, RemoteSourcePublisher, Status } from "./api/git";
@@ -701,11 +701,7 @@ export class CommandCenter {
     let uri: string | undefined;
 
     if (typeof arg === 'string') {
-      if (!isUri(arg)) {
-        uri = `file://${arg}`;
-      } else {
-        uri = arg;
-      }
+      uri = toFileUrl(arg);
     } else {
       let resource = arg;
 
@@ -714,7 +710,7 @@ export class CommandCenter {
       }
 
       if (resource && resource.type !== Status.DELETED && resource.type !== Status.INDEX_DELETED) {
-        uri = `file://${resource.resourceUri}`;
+        uri = toFileUrl(resource.resourceUri);
       }
     }
 

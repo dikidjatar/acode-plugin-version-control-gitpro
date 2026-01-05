@@ -1,6 +1,6 @@
 import { config } from '../base/config';
 import { Emitter, Event } from '../base/event';
-import { isUri } from '../base/uri';
+import { toFileUrl } from '../base/uri';
 
 const ACODE_TERMINAL_FILES = `/data/user/0/${window.BuildInfo.packageName}/files`;
 
@@ -174,7 +174,7 @@ export function find<T>(array: T[], fn: (t: T) => boolean): T | undefined {
 }
 
 export async function grep(filename: string, pattern: RegExp): Promise<boolean> {
-	const text = await fs(!isUri(filename) ? `file://${filename}` : filename).readFile('utf-8');
+	const text = await fs(toFileUrl(filename)).readFile('utf-8');
 	return pattern.test(text);
 }
 

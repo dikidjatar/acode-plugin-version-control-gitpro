@@ -3,7 +3,7 @@ import { config } from "../base/config";
 import { debounce, memoize, sequentialize } from "../base/decorators";
 import { Disposable, IDisposable } from "../base/disposable";
 import { Emitter, Event } from "../base/event";
-import { isUri, uriToPath } from "../base/uri";
+import { uriToPath } from "../base/uri";
 import { SourceControl, SourceControlResourceGroup } from "../scm/api/sourceControl";
 import { ApiRepository } from "./api/api1";
 import { CredentialsProvider, PublishEvent, PushErrorHandler, RemoteSourcePublisher, APIState as State } from "./api/git";
@@ -478,10 +478,8 @@ export class Model implements IRepositoryResolver, IRemoteSourcePublisherRegistr
 
       if (isGitUri(hint)) {
         path = fromGitUri(hint).path;
-      } else if (isUri(hint)) {
-        path = uriToPath(hint);
       } else {
-        path = hint;
+        path = uriToPath(hint);
       }
 
       outer:

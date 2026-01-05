@@ -1,6 +1,6 @@
 import { debounce, throttle } from "../base/decorators";
 import { Disposable, IDisposable } from "../base/disposable";
-import { isUri, uriToPath } from "../base/uri";
+import { uriToPath } from "../base/uri";
 import { LogOutputChannel } from "./logger";
 import { Model, ModelChangeEvent } from "./model";
 import { Repository } from "./repository";
@@ -90,7 +90,7 @@ export class GitFileSystem {
     for (const row of this.cache.values()) {
       const { path } = fromGitUri(row.uri);
       const isOpen = editorManager.files
-        .filter(file => isUri(file.uri))
+        .filter(file => !!file.uri)
         .some(file => pathEquals(uriToPath(file.uri), path));
 
       if (isOpen || now - row.timestamp < THREE_MINUTES) {
