@@ -22,6 +22,7 @@ interface Executor {
   isRunning(uuid: string): Promise<boolean>;
   write(uuid: string, input: string): Promise<void>;
   stop(uuid: string): Promise<void>;
+  BackgroundExecutor: Omit<Executor, 'BackgroundExecutor'>;
 }
 
 interface ISCMConfig {

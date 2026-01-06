@@ -127,11 +127,21 @@ function buildCommand(
   return finalCommand;
 }
 
+function getExecutorType(): 'BackgroundExecutor' | 'Executor' {
+  if (typeof Executor.BackgroundExecutor !== 'undefined') {
+    return 'BackgroundExecutor';
+  }
+
+  return 'Executor';
+}
+
 /**
  * Use nativeStart to fix invalid output in git due to trimmed output in Acode, causing parser to fail
  * @see https://github.com/Acode-Foundation/Acode/tree/main/src/plugins/terminal/Executor.js#L37
  */
 async function nativeStart(command: string, onData: (type: string, data: string) => void, alpine?: boolean): Promise<string> {
+  const executorType = getExecutorType();
+
   return new Promise<string>((resolve, reject) => {
     let first = true;
     cordova.exec(async (message: string) => {
@@ -151,7 +161,7 @@ async function nativeStart(command: string, onData: (type: string, data: string)
       }
     },
       reject,
-      'Executor',
+      executorType,
       'start',
       [command, String(alpine)]);
   });
