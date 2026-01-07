@@ -167,6 +167,14 @@
                 height: 14px !important;
               }
             }
+
+            >.text {
+              overflow: hidden !important;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+              margin-left: 2px;
+              min-width: 0;
+            }
           }
         }
       }

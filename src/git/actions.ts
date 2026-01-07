@@ -1,6 +1,6 @@
+import { config } from "../base/config";
 import { IDisposable } from "../base/disposable";
 import { Emitter, Event } from "../base/event";
-import { config } from "../base/config";
 import { SourceControlCommandAction } from "../scm/api/sourceControl";
 import { Branch, RefType, RemoteSourcePublisher } from "./api/git";
 import { CheckoutOperation, CheckoutTrackingOperation, OperationKind } from "./operation";
@@ -43,7 +43,8 @@ class CheckoutCommandAction {
       ...this.repository.operations.getOperations(OperationKind.CheckoutTracking) as CheckoutTrackingOperation[]
     ];
 
-    const label = operationData[0]?.refLabel ?? this.repository.headLabel;
+    const rebasing = !!this.repository.rebaseCommit;
+    const label = operationData[0]?.refLabel ?? `${this.repository.headLabel}${rebasing ? ` (Rebasing)` : ''}`;
     const command = (this.state.isCheckoutRunning || this.state.isCommitRunning || this.state.isSyncRunning) ? '' : 'git.checkout';
 
     return {
@@ -59,18 +60,18 @@ class CheckoutCommandAction {
     }
 
     if (this.state.isCheckoutRunning) {
-      return '<span class="icon loading spin"></span>'
+      return '$(loading~spin)';
     }
 
     if (this.repository.HEAD.type === RefType.Head && this.repository.HEAD.name) {
-      return '<span class="icon branch"></span>';
+      return '$(branch)';
     }
 
     if (this.repository.HEAD.type === RefType.Tag) {
-      return '<span class="icon tag"></span>'
+      return '$(tag)';
     }
 
-    return '<span class="icon git-commit"></span>';
+    return '$(git-commit)';
   }
 
   private onDidChangeOperations(): void {
@@ -180,11 +181,11 @@ class SyncCommandAction {
 
       return {
         id: command,
-        title: `<span class="icon cloud-upload"></span>`,
+        title: `$(cloud-upload)`,
         arguments: [this.repository.sourceControl]
       }
     }
-
+``
     const HEAD = this.state.HEAD;
     let icon = 'sync';
     let text = '';
@@ -211,7 +212,7 @@ class SyncCommandAction {
 
     return {
       id: command,
-      title: `<span class="icon ${icon}"></span> ${text}`,
+      title: `$(${icon}) ${text}`,
       arguments: [this.repository.sourceControl]
     };
   }

@@ -2,6 +2,7 @@ import { DisposableStore, IDisposable } from "../base/disposable";
 import { Event } from "../base/event";
 import { IListRenderer } from "../base/list";
 import { ISCMCommandService, ISCMMenuItemAction, ISCMMenuService, ISCMRepository, ISCMViewService } from "./types";
+import { renderLabelWithIcon2 } from "./utils";
 
 class RepositoryAction implements IDisposable {
   private actionContainer: HTMLElement;
@@ -50,7 +51,7 @@ class RepositoryAction implements IDisposable {
       }
 
       const actionItem = tag('li', { className: 'action-item' });
-      actionItem.innerHTML = action.title;
+      actionItem.innerHTML = renderLabelWithIcon2(action.title);
       this.actionContainer.appendChild(actionItem);
 
       Event.fromDOMEvent(actionItem, 'click')(e => {
