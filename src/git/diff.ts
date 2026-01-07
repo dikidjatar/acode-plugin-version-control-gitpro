@@ -204,7 +204,7 @@ function addMarker(session: Ace.EditSession, marker: Marker): void {
   const className = marker.type === 'added' ? 'gh-added-line' : 'gh-deleted-line';
   const gutterName = marker.type === 'added' ? 'gh-added-gutter' : 'gh-deleted-gutter';
   for (let i = marker.start; i < marker.end; i++) {
-    const range = new Range(i, 0, i, 100);
+    const range = new Range(i, 0, i, 20000);
     session.addMarker(range, className, 'fullLine');
     session.addGutterDecoration(i, gutterName);
   }
