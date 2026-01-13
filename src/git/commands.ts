@@ -584,7 +584,10 @@ export class CommandCenter {
     options: { recursive?: boolean; ref?: string } = {}
   ): Promise<void> {
     if (!url || typeof url !== 'string') {
-      url = await prompt('Clone Repository', '', 'text', { placeholder: 'Enter repository Url' }) ?? undefined;
+      url = await this.model.pickRemoteSource({
+        providerLabel: provider => `Clone from ${provider.name}`,
+        urlLabel: 'Clone from URL'
+      });
     }
 
     if (!url) {
@@ -2189,30 +2192,27 @@ export class CommandCenter {
 
   @command('Add Remote...', { repository: true })
   async addRemote(repository: Repository): Promise<string | undefined> {
-    const data: any = await multiPrompt('Add Remote', [
-      {
-        id: 'url',
-        type: 'url',
-        placeholder: 'Please provide a repository URL',
-        required: true
-      },
-      {
-        id: 'name',
-        type: 'text',
-        placeholder: 'Please provide a remote name',
-        required: true
-      }
-    ], '');
-
-    if (typeof data !== 'object') {
-      return;
-    }
-
-    const { url, name: resultName } = data;
+    const url = await this.model.pickRemoteSource({
+      providerLabel: provider => `Add remote from ${provider.name}`,
+      urlLabel: 'Add remote from URL'
+    });
 
     if (!url) {
       return;
     }
+
+    const resultName = await prompt('Remote Name', '', 'text', {
+      placeholder: 'Please provide a remote name',
+      test: (name: string) => {
+        if (!sanitizeRemoteName(name)) {
+          return false;
+        } else if (repository.remotes.find(r => r.name === name)) {
+          return false;
+        }
+
+        return true;
+      }
+    });
 
     const name = sanitizeRemoteName(resultName || '');
 

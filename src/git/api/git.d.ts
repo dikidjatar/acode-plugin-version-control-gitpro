@@ -246,7 +246,23 @@ export interface Repository {
 export interface RemoteSource {
 	readonly name: string;
 	readonly description?: string;
+	readonly detail?: string;
+	readonly icon?: string;
 	readonly url: string | string[];
+}
+
+export interface RemoteSourceProvider {
+	readonly name: string;
+	readonly icon?: string;
+	readonly placeholder?: string;
+	readonly supportsQuery?: boolean;
+	getRemoteSources(query?: string): Promise<RemoteSource[]>;
+	publishRepository?(repository: Repository): Promise<void>;
+}
+
+export interface PickRemoteSourceOptions {
+	readonly providerLabel?: (provider: RemoteSourceProvider) => string;
+	readonly urlLabel?: string;
 }
 
 export interface RemoteSourcePublisher {
@@ -305,8 +321,10 @@ export interface API {
 	init(root: string, options?: InitOptions): Promise<Repository | null>;
 	openRepository(root: string): Promise<Repository | null>;
 	registerRemoteSourcePublisher(publisher: RemoteSourcePublisher): IDisposable;
+	registerRemoteSourceProvider(provider: RemoteSourceProvider): IDisposable;
 	registerCredentialsProvider(provider: CredentialsProvider): IDisposable;
 	registerPushErrorHandler(handler: PushErrorHandler): IDisposable;
+	pickRemoteSource(options: PickRemoteSourceOptions): Promise<string | undefined>;
 }
 
 export interface GitExtension {

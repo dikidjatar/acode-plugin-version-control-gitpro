@@ -1,11 +1,11 @@
-import { IDisposable } from "../../base/disposable";
+import { Disposable, IDisposable } from "../../base/disposable";
 import { Event } from "../../base/event";
 import { SourceControl, SourceControlInputBox } from "../../scm/api/sourceControl";
 import { Model } from "../model";
 import { OperationKind, OperationResult } from "../operation";
 import { Repository as BaseRepository, Resource } from "../repository";
 import { toGitUri } from "../uri";
-import { API, APIState, Branch, BranchQuery, Change, Commit, CommitOptions, CredentialsProvider, FetchOptions, ForcePushMode, Git, GitErrorCodes, InitOptions, InputBox, LogOptions, PublishEvent, PushErrorHandler, Ref, RefQuery, Remote, RemoteSourcePublisher, Repository, RepositoryState, RepositoryUIState, Status, Submodule } from "./git";
+import { API, APIState, Branch, BranchQuery, Change, Commit, CommitOptions, CredentialsProvider, FetchOptions, ForcePushMode, Git, GitErrorCodes, InitOptions, InputBox, LogOptions, PickRemoteSourceOptions, PublishEvent, PushErrorHandler, Ref, RefQuery, Remote, RemoteSourceProvider, RemoteSourcePublisher, Repository, RepositoryState, RepositoryUIState, Status, Submodule } from "./git";
 
 class ApiInputBox implements InputBox {
   #inputBox: SourceControlInputBox;
@@ -328,15 +328,30 @@ export class ApiImpl implements API {
     return this.getRepository(root) || null;
   }
 
-  registerRemoteSourcePublisher(publisher: RemoteSourcePublisher) {
-    this.#model.registerRemoteSourcePublisher(publisher);
+  registerRemoteSourcePublisher(publisher: RemoteSourcePublisher): IDisposable {
+    return this.#model.registerRemoteSourcePublisher(publisher);
+  }
+
+  registerRemoteSourceProvider(provider: RemoteSourceProvider): IDisposable {
+    const disposables: IDisposable[] = [];
+
+    if (provider.publishRepository) {
+      disposables.push(this.#model.registerRemoteSourcePublisher(provider as RemoteSourcePublisher));
+    }
+    disposables.push(this.#model.registerRemoteSourceProvider(provider));
+
+    return Disposable.create(...disposables);
+  }
+
+  async pickRemoteSource(options: PickRemoteSourceOptions): Promise<string | undefined> {
+    return await this.#model.pickRemoteSource(options);
   }
 
   registerCredentialsProvider(provider: CredentialsProvider): IDisposable {
     return this.#model.registerCredentialsProvider(provider);
   }
 
-  registerPushErrorHandler(handler: PushErrorHandler) {
-    this.#model.registerPushErrorHandler(handler);
+  registerPushErrorHandler(handler: PushErrorHandler): IDisposable {
+    return this.#model.registerPushErrorHandler(handler);
   }
 }

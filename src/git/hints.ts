@@ -69,7 +69,7 @@ export class InputHint<T extends HintItem> {
   private readonly _onDidHide = new Emitter<void>();
   readonly onDidHide = this._onDidHide.event;
 
-  private readonly _onDidChangeValue = new Emitter<void>();
+  private readonly _onDidChangeValue = new Emitter<string>();
   readonly onDidChangeValue = this._onDidChangeValue.event;
 
   get items(): T[] { return this._items; }
@@ -163,7 +163,7 @@ export class InputHint<T extends HintItem> {
     this.input.dispatchEvent(new globalThis.Event('input'));
     Event.fromDOMEvent(this.input, 'input')(() => {
       this._lastInputValue = this.input.value;
-      this._onDidChangeValue.fire();
+      this._onDidChangeValue.fire(this.input.value);
     }, null, this.disposables);
 
     this.updateIgnoreFocusOut();
@@ -181,20 +181,6 @@ export class InputHint<T extends HintItem> {
       this.ignoreFocusOutDisposable?.dispose();
       this.ignoreFocusOutDisposable = undefined;
     }
-  }
-
-  public async hint(): Promise<T | undefined> {
-    if (this.isDisposed) {
-      return;
-    }
-
-    const result = await Promise.race<T | undefined>([
-      new Promise(c => this.onDidSelect(item => c(item))),
-      new Promise<undefined>(c => this.onDidHide(() => c(undefined)))
-    ]);
-
-    this.dispose();
-    return result;
   }
 
   private onKeyDown(e: KeyboardEvent) {
@@ -230,7 +216,19 @@ export async function showInputHints<T extends HintItem>(hints: T[] | Promise<T[
 
   const items = hints instanceof Promise ? await hints : hints;
   inputHint.items = items;
-  return await inputHint.hint();
+
+  return await getInputHintResult(inputHint);
+}
+
+export async function getInputHintResult<T extends HintItem>(inputHint: InputHint<T>): Promise<T | undefined> {
+  const disposables: IDisposable[] = [];
+  const result = await Promise.race<T | undefined>([
+    new Promise(c => disposables.push(inputHint.onDidSelect(item => c(item)))),
+    new Promise<undefined>(c => disposables.push(inputHint.onDidHide(() => c(undefined))))
+  ]);
+  Disposable.dispose(disposables);
+  inputHint.dispose();
+  return result;
 }
 
 function getHintItems(items: HintItem[]): Acode.Hint[] {

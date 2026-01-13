@@ -1,16 +1,18 @@
 import { App, WorkspaceFoldersChangeEvent } from "../base/app";
 import { config } from "../base/config";
-import { debounce, memoize, sequentialize } from "../base/decorators";
+import { debounce, memoize, sequentialize, throttle } from "../base/decorators";
 import { Disposable, IDisposable } from "../base/disposable";
 import { Emitter, Event } from "../base/event";
 import { uriToPath } from "../base/uri";
 import { SourceControl, SourceControlResourceGroup } from "../scm/api/sourceControl";
 import { ApiRepository } from "./api/api1";
-import { CredentialsProvider, PublishEvent, PushErrorHandler, RemoteSourcePublisher, APIState as State } from "./api/git";
+import { CredentialsProvider, PickRemoteSourceOptions, PublishEvent, PushErrorHandler, RemoteSource, RemoteSourceProvider, RemoteSourcePublisher, APIState as State } from "./api/git";
 import { AskPass } from "./askpass";
 import { Git } from "./git";
+import { getInputHintResult, HintItem, InputHint } from "./hints";
 import { LogOutputChannel } from "./logger";
 import { IPushErrorHandlerRegistry } from "./pushError";
+import { IRemoteSourceProviderRegistry } from "./remoteProvider";
 import { IRemoteSourcePublisherRegistry } from "./remotePublisher";
 import { IRepositoryResolver, Repository } from "./repository";
 import { fromGitUri, isGitUri } from "./uri";
@@ -19,7 +21,6 @@ import { isDescendant, joinUrl, pathEquals } from "./utils";
 const fs = acode.require('fs');
 const palette = acode.require('palette');
 const Url = acode.require('Url');
-
 class RepositoryPick {
 
   @memoize get text(): string {
@@ -78,7 +79,106 @@ class ClosedRepositoriesManager {
   }
 }
 
-export class Model implements IRepositoryResolver, IRemoteSourcePublisherRegistry, IPushErrorHandlerRegistry, IDisposable {
+class RemoteSourceProviderInputHint implements IDisposable {
+
+  private disposables: IDisposable[] = [];
+  private isDisposed: boolean = false;
+
+  private inputHint: InputHint<HintItem & { remoteSource?: RemoteSource }> | undefined;
+
+  constructor(private provider: RemoteSourceProvider) { }
+
+  dispose(): void {
+    this.disposables = Disposable.dispose(this.disposables);
+    this.disposables = [];
+    this.inputHint = undefined;
+    this.isDisposed = true;
+  }
+
+  private ensureInputHints() {
+    if (!this.inputHint) {
+      this.inputHint = new InputHint();
+      this.disposables.push(this.inputHint);
+      this.inputHint.ignoreFocusOut = true;
+      this.inputHint.enterKeyHint = 'go';
+      this.disposables.push(this.inputHint.onDidHide(() => this.dispose()));
+      if (this.provider.supportsQuery) {
+        this.inputHint.placeholder = this.provider.placeholder ?? 'Repository name (type to search)';
+        this.disposables.push(this.inputHint.onDidChangeValue(this.onDidChangeValue, this));
+      } else {
+        this.inputHint.placeholder = 'Repository name';
+      }
+    }
+  }
+
+  @debounce(300)
+  private onDidChangeValue(): void {
+    this.query();
+  }
+
+  @throttle
+  private async query(): Promise<void> {
+    try {
+      if (this.isDisposed) {
+        return;
+      }
+      this.ensureInputHints();
+      this.inputHint!.loading = true;
+
+      const remoteSources = await this.provider.getRemoteSources(this.inputHint?.value) || [];
+      if (this.isDisposed) {
+        return;
+      }
+
+      if (remoteSources.length === 0) {
+        this.inputHint!.items = [{ label: 'No remote repositories found.' }];
+      } else {
+        this.inputHint!.items = remoteSources.map(remoteSource => ({
+          label: remoteSource.name,
+          icon: remoteSource.icon,
+          description: remoteSource.description || (typeof remoteSource.url === 'string' ? remoteSource.url : remoteSource.url[0]),
+          detail: remoteSource.detail,
+          remoteSource
+        }));
+      }
+    } catch (err: any) {
+      this.inputHint!.items = [{ label: `Error: ${err.message}`, icon: 'error' }];
+    } finally {
+      if (!this.isDisposed) {
+        this.inputHint!.loading = false;
+      }
+    }
+  }
+
+  async hint(): Promise<RemoteSource | undefined> {
+    await this.query();
+    if (this.isDisposed) {
+      return;
+    }
+    const result = await getInputHintResult(this.inputHint!);
+    return result?.remoteSource;
+  }
+}
+
+async function pickProviderSource(provider: RemoteSourceProvider): Promise<string | undefined> {
+  const inputHint = new RemoteSourceProviderInputHint(provider);
+  const remote = await inputHint.hint();
+  inputHint.dispose();
+
+  let url: string | undefined;
+
+  if (remote) {
+    if (typeof remote.url === 'string') {
+      url = remote.url;
+    } else if (remote.url.length > 0) {
+      url = await acode.select('Choose a URL', remote.url.map(url => [url, url]));
+    }
+  }
+
+  return url;
+}
+
+export class Model implements IRepositoryResolver, IRemoteSourcePublisherRegistry, IPushErrorHandlerRegistry, IRemoteSourceProviderRegistry, IDisposable {
 
   private _onDidOpenRepository = new Emitter<Repository>();
   readonly onDidOpenRepository: Event<Repository> = this._onDidOpenRepository.event;
@@ -123,12 +223,19 @@ export class Model implements IRepositoryResolver, IRemoteSourcePublisherRegistr
   }
 
   private remoteSourcePublishers = new Set<RemoteSourcePublisher>();
+  private remoteSourceProviders = new Set<RemoteSourceProvider>();
 
   private _onDidAddRemoteSourcePublisher = new Emitter<RemoteSourcePublisher>();
   readonly onDidAddRemoteSourcePublisher = this._onDidAddRemoteSourcePublisher.event;
 
   private _onDidRemoveRemoteSourcePublisher = new Emitter<RemoteSourcePublisher>();
   readonly onDidRemoveRemoteSourcePublisher = this._onDidRemoveRemoteSourcePublisher.event;
+
+  private _onDidAddRemoteSourceProvider = new Emitter<RemoteSourceProvider>();
+  readonly onDidAddRemoteSourceProvider = this._onDidAddRemoteSourceProvider.event;
+
+  private _onDidRemoveRemoteSourceProvider = new Emitter<RemoteSourceProvider>();
+  readonly onDidRemoveRemoteSourceProvider = this._onDidRemoveRemoteSourceProvider.event;
 
   private pushErrorHandlers = new Set<PushErrorHandler>();
 
@@ -543,6 +650,65 @@ export class Model implements IRepositoryResolver, IRemoteSourcePublisherRegistr
 
   getRemoteSourcePublishers(): RemoteSourcePublisher[] {
     return [...this.remoteSourcePublishers.values()];
+  }
+
+  registerRemoteSourceProvider(provider: RemoteSourceProvider): IDisposable {
+    this.remoteSourceProviders.add(provider);
+    this._onDidAddRemoteSourceProvider.fire(provider);
+
+    return Disposable.toDisposable(() => {
+      this.remoteSourceProviders.delete(provider);
+      this._onDidRemoveRemoteSourceProvider.fire(provider);
+    });
+  }
+
+  async pickRemoteSource(options: PickRemoteSourceOptions = {}): Promise<string | undefined> {
+    const remoteProviders = [...this.remoteSourceProviders]
+      .map(provider => ({ label: options.providerLabel ? options.providerLabel(provider) : provider.name, icon: provider.icon, provider }));
+
+    if (remoteProviders.length > 0) {
+      const inputHint = new InputHint<(HintItem & { provider?: RemoteSourceProvider; url?: string })>();
+      inputHint.placeholder = 'Provide repository URL or pick a repository source.';
+      const items = [
+        { type: 'separator', label: 'remote sources' } satisfies HintItem,
+        ...remoteProviders
+      ];
+
+      const updateHints = (value?: string) => {
+        if (value) {
+          inputHint.items = [{
+            label: options.urlLabel || 'URL',
+            description: value,
+            url: value
+          },
+          ...items
+          ];
+        } else {
+          inputHint.items = items;
+        }
+      }
+
+      inputHint.onDidChangeValue(updateHints);
+      updateHints();
+
+      const result = await getInputHintResult(inputHint);
+
+      if (result) {
+        if (result.url) {
+          return result.url;
+        } else if (result.provider) {
+          return await pickProviderSource(result.provider);
+        }
+      }
+
+      return undefined;
+    } else {
+      const url = await acode.prompt(options.urlLabel || 'URL', '', 'url', { placeholder: 'Provide repository URL', });
+      if (!url) {
+        return undefined;
+      }
+      return url;
+    }
   }
 
   registerCredentialsProvider(provider: CredentialsProvider): IDisposable {
