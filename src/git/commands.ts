@@ -7,7 +7,7 @@ import { Branch, CommitOptions, ForcePushMode, GitErrorCodes, Ref, RefType, Remo
 import { item, showDialogMessage } from "./dialog";
 import { UnifiedDiff } from "./diff";
 import { Git, Stash } from "./git";
-import { HintItem, showInputHints } from "./hints";
+import { HintItem, InputHint, showInputHints } from "./hints";
 import { LogOutputChannel } from "./logger";
 import { Model } from "./model";
 import { Repository, Resource, ResourceGroupType } from "./repository";
@@ -1559,19 +1559,38 @@ export class CommandCenter {
     const createBranch = new CreateBranchItem();
     const createBranchFrom = new CreateBranchFromItem();
     const checkoutDetached = new CheckoutDetachedItem();
-    let items: HintItem[] = [];
+    const hints: HintItem[] = [];
+    const commands: HintItem[] = [];
 
     if (!opts?.detached) {
-      items.push(createBranch, createBranchFrom, checkoutDetached);
+      commands.push(createBranch, createBranchFrom, checkoutDetached);
     }
 
-    const placeholder = opts?.detached
+    const disposables: IDisposable[] = [];
+    const inputHint = new InputHint();
+    inputHint.loading = true;
+    inputHint.placeholder = opts?.detached
       ? 'Select a branch to checkout in detached mode'
       : 'Select a branch or tag to checkout';
-    const choice = await showInputHints(async () => {
-      items.push(...await createCheckoutItems(repository, opts?.detached));
-      return items;
-    }, { placeholder });
+
+    hints.push(...await createCheckoutItems(repository, opts?.detached));
+
+    if (commands.length === 0) {
+      inputHint.items = hints;
+    } else if (hints.length === 0) {
+      inputHint.items = commands;
+    } else {
+      inputHint.items = [...commands, ...hints];
+    }
+
+    inputHint.loading = false;
+
+    const choice = await new Promise<HintItem | undefined>(c => {
+      disposables.push(inputHint.onDidHide(() => c(undefined)));
+      disposables.push(inputHint.onDidSelect((item) => c(item)));
+    });
+    Disposable.dispose(disposables);
+    inputHint.dispose();
 
     if (!choice) {
       return false;
@@ -1685,7 +1704,7 @@ export class CommandCenter {
         return [new HEADItem(repository, commitShortHashLength), ...refProcessors.processRefs(refs)];
       }
 
-      const choice = await showInputHints(getRefHints, { placeholder: 'Select a ref to create the branch from' });
+      const choice = await showInputHints(getRefHints(), { placeholder: 'Select a ref to create the branch from' });
 
       if (!choice) {
         return;
@@ -1746,7 +1765,7 @@ export class CommandCenter {
       const placeholder = !options.remote
         ? 'Select a branch to delete'
         : 'Select a remote branch to delete';
-      const choice = await showInputHints(getBranchHints, { placeholder });
+      const choice = await showInputHints(getBranchHints(), { placeholder });
 
       if (!(choice instanceof BranchDeleteItem) || !choice.refName) {
         return;
@@ -1801,7 +1820,7 @@ export class CommandCenter {
     const gitConfig = config.get('vcgit')!;
     const showRefDetails = gitConfig.showReferenceDetails;
 
-    const getHints = async (): Promise<HintItem[]> => {
+    const getHintItems = async (): Promise<HintItem[]> => {
       const refs = await repository.getRefs({ includeCommitDetails: showRefDetails });
       const itemsProcessor = new RefItemsProcessor(repository, [
         new RefProcessor(RefType.Head, MergeItem),
@@ -1815,7 +1834,7 @@ export class CommandCenter {
       return itemsProcessor.processRefs(refs);
     }
 
-    const choice = await showInputHints(getHints, { placeholder: 'Select a branch or tag to merge from' });
+    const choice = await showInputHints(getHintItems(), { placeholder: 'Select a branch or tag to merge from' });
 
     if (choice instanceof MergeItem) {
       await choice.run(repository);
@@ -1833,7 +1852,7 @@ export class CommandCenter {
     const showRefDetails = gitConfig.showReferenceDetails;
     const commitShortHashLength = gitConfig.commitShortHashLength;
 
-    const getHints = async (): Promise<HintItem[]> => {
+    const getHintItems = async (): Promise<HintItem[]> => {
       const refs = await repository.getRefs({ includeCommitDetails: showRefDetails });
       const itemsProcessor = new RefItemsProcessor(repository, [
         new RefProcessor(RefType.Head, RebaseItem),
@@ -1857,7 +1876,7 @@ export class CommandCenter {
       return hintItems;
     }
 
-    const choice = await showInputHints(getHints, { placeholder: 'Select a branch to rebase onto' });
+    const choice = await showInputHints(getHintItems(), { placeholder: 'Select a branch to rebase onto' });
 
     if (choice instanceof RebaseItem) {
       await choice.run(repository);
@@ -1899,7 +1918,7 @@ export class CommandCenter {
         : remoteTags.map(ref => new TagDeleteItem(ref, commitShortHashLength));
     }
 
-    const choice = await showInputHints(tagHints, { placeholder: 'Select a tag to delete' });
+    const choice = await showInputHints(tagHints(), { placeholder: 'Select a tag to delete' });
 
     if (choice instanceof TagDeleteItem) {
       await choice.run(repository);
@@ -1951,7 +1970,7 @@ export class CommandCenter {
         : remoteTags.map(ref => new RemoteTagDeleteItem(ref, commitShortHashLength));
     }
 
-    const remoteTagHint = await showInputHints(remoteTagHints, { placeholder: 'Select a remote tag to delete' });
+    const remoteTagHint = await showInputHints(remoteTagHints(), { placeholder: 'Select a remote tag to delete' });
 
     if (remoteTagHint instanceof RemoteTagDeleteItem) {
       await remoteTagHint.run(repository, remoteName);
@@ -2513,7 +2532,7 @@ export class CommandCenter {
         : [{ label: 'ⓘ This repository has no stashes.' }];
     }
 
-    const result = await showInputHints(getStashHintItems as () => Promise<StashItem[]>, { placeholder });
+    const result = await showInputHints<StashItem | HintItem>(getStashHintItems(), { placeholder });
     return result instanceof StashItem ? result.stash : undefined;
   }
 
