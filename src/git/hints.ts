@@ -193,16 +193,19 @@ export class InputHint<T extends HintItem> {
 
   public dispose(): void {
     actionStack.remove('input-hints');
+    this.ignoreFocusOutDisposable?.dispose();
+    this.disposables = Disposable.dispose(this.disposables);
     this.style.remove();
     this.palette.remove();
     this.mask.remove();
-    this.disposables = Disposable.dispose(this.disposables);
     this.isDisposed = true;
     setTimeout(() => this._onDidHide.fire(), 50);
   }
 }
 
 export async function showInputHints<T extends HintItem>(hints: T[] | Promise<T[]>, options: InputHintOptions = {}): Promise<T | undefined> {
+  await new Promise(c => setTimeout(c, 20));
+
   const inputHint = new InputHint<T>();
   inputHint.value = options.value || '';
   inputHint.type = options.type || '';
