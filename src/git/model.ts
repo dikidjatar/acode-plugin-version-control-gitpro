@@ -9,7 +9,7 @@ import { ApiRepository } from "./api/api1";
 import { CredentialsProvider, PickRemoteSourceOptions, PublishEvent, PushErrorHandler, RemoteSource, RemoteSourceProvider, RemoteSourcePublisher, APIState as State } from "./api/git";
 import { AskPass } from "./askpass";
 import { Git } from "./git";
-import { getInputHintResult, HintItem, InputHint } from "./hints";
+import { getInputHintResult, HintItem, InputHint, showInputHints } from "./hints";
 import { LogOutputChannel } from "./logger";
 import { IPushErrorHandlerRegistry } from "./pushError";
 import { IRemoteSourceProviderRegistry } from "./remoteProvider";
@@ -19,19 +19,21 @@ import { fromGitUri, isGitUri } from "./uri";
 import { isDescendant, joinUrl, pathEquals } from "./utils";
 
 const fs = acode.require('fs');
-const palette = acode.require('palette');
 const Url = acode.require('Url');
-class RepositoryPick {
 
-  @memoize get text(): string {
-    return `<span data-str="${this.repository.root}">${Url.basename(this.repository.root)}</span>`;
+class RepositoryHint implements HintItem {
+
+  @memoize get label(): string { return Url.basename(this.repository.root)!; }
+
+  @memoize get description(): string {
+    return [this.repository.headLabel, this.repository.syncLabel]
+      .filter(l => !!l)
+      .join(' ');
   }
 
-  @memoize get value(): string {
-    return this.repository.root;
-  }
+  @memoize get icon(): string { return 'repo'; }
 
-  constructor(private readonly repository: Repository) { }
+  constructor(public readonly repository: Repository) { }
 }
 
 export interface ModelChangeEvent {
@@ -519,21 +521,26 @@ export class Model implements IRepositoryResolver, IRemoteSourcePublisherRegistr
   }
 
   async pickRepository(): Promise<Repository | undefined> {
-    return new Promise((resolve, reject) => {
-      if (this.openRepositories.length === 0) {
-        return reject(new Error('There are no available repositories'));
-      }
+    if (this.openRepositories.length === 0) {
+      throw new Error('There are no available repositories');
+    }
 
-      const repositories = this.openRepositories;
-      const hintItems = repositories.map(r => new RepositoryPick(r.repository));
+    if (this.openRepositories.length === 1) {
+      return this.openRepositories[0].repository;
+    }
 
-      const onSelect = (path: string): void => {
-        const openRepository = repositories.find(r => pathEquals(r.repository.root, path));
-        resolve(openRepository?.repository);
-      }
+    const active = editorManager.activeFile;
+    const hints = this.openRepositories.map(r => new RepositoryHint(r.repository));
+    const repository = active && this.getRepository(active.uri);
+    const index = hints.findIndex(hint => hint.repository === repository);
 
-      palette(() => hintItems as any[], onSelect, 'Choose a Repository');
-    });
+    // Move repository hint containing the active text editor to appear first
+    if (index > -1) {
+      hints.unshift(...hints.splice(index, 1));
+    }
+
+    const hint = await showInputHints(hints, { placeholder: 'Choose a Repository' });
+    return hint && hint.repository;
   }
 
   getRepository(sourceControl: SourceControl): Repository | undefined;
