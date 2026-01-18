@@ -1,0 +1,68 @@
+#git-palette {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  margin: auto;
+  height: 40px;
+  width: 90vw;
+  max-width: 600px;
+  z-index: 99;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  background-color: inherit;
+  box-shadow: 0 0 4px black;
+  z-index: 999;
+
+  &~#hints {
+    width: 90vw;
+    box-sizing: border-box;
+    z-index: 999;
+  }
+
+  &~.mask {
+    opacity: 0.4;
+    z-index: 998;
+  }
+
+  input {
+    width: 100%;
+    border: none;
+    color: var(--primary-text-color);
+  }
+
+  &.ignore-focus-out {
+    z-index: 112;
+
+    &~#hints {
+      z-index: 112;
+    }
+
+    &~.mask {
+      z-index: 111;
+    }
+  }
+}
+
+#hints>li[action="hint"]>div.git-hint-item .icon::before {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  width: 14px !important;
+  height: 14px !important;
+}
+
+@keyframes linearMove {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  50% {
+    transform: translateX(200%);
+  }
+
+  100% {
+    transform: translateX(500%);
+  }
+}

@@ -1,5 +1,6 @@
 import { Disposable, IDisposable } from "../base/disposable";
 import { Emitter, Event } from "../base/event";
+import './hints.scss';
 
 const actionStack = acode.require('actionStack');
 const InputHints = acode.require('inputHints');
@@ -56,7 +57,6 @@ export class InputHint<T extends HintItem> {
   private readonly input: HTMLInputElement;
   private readonly palette: HTMLElement;
   private readonly mask: HTMLElement;
-  private readonly style: HTMLStyleElement;
   private getList: ((hints: Acode.Hint[]) => void) | undefined;
   private _items: T[] = [];
   private disposables: IDisposable[] = [];
@@ -98,7 +98,6 @@ export class InputHint<T extends HintItem> {
   get type(): string { return this.input.type; }
   set type(type: string) { this.input.type = type; }
 
-  private ignoreFocusOutDisposable: IDisposable | undefined;
   private _ignoreFocusOut: boolean = false;
   get ignoreFocusOut(): boolean { return this._ignoreFocusOut; }
   set ignoreFocusOut(ignoreFocusOut: boolean) {
@@ -122,30 +121,15 @@ export class InputHint<T extends HintItem> {
   constructor() {
     this.input = tag('input');
     this.input.onkeydown = this.onKeyDown.bind(this);
-    this.style = document.head.appendChild(tag('style'));
-    this.style.innerHTML = `#hints > li[action="hint"] > div.git-hint-item .icon::before {
-      display: flex !important;
-      justify-content: center !important;
-      align-items: center !important;
-      width: 14px !important;
-      height: 14px !important;
-    }
-    @keyframes linearMove {
-      0% {
-        transform: translateX(-100%);
+    Event.fromDOMEvent(this.input, 'blur')((e) => {
+      if (this.ignoreFocusOut) {
+        e.stopImmediatePropagation();
+      } else {
+        this.dispose();
       }
-
-      50% {
-        transform: translateX(200%);
-      }
-
-      100% {
-        transform: translateX(500%);
-      }
-    }`;
+    }, null, this.disposables);
     this.mask = tag('div', { className: 'mask' });
-    this.palette = tag('div', { id: 'palette' });
-    this.palette.style.flexDirection = 'column';
+    this.palette = tag('div', { id: 'git-palette' });
     this.palette.appendChild(this.input);
     this.progress = new Progress(this.palette);
     InputHints(
@@ -166,6 +150,14 @@ export class InputHint<T extends HintItem> {
       this._onDidChangeValue.fire(this.input.value);
     }, null, this.disposables);
 
+    Event.fromDOMEvent(this.mask, 'click')(() => {
+      if (this.ignoreFocusOut) {
+        return;
+      }
+
+      this.dispose();
+    }, null, this.disposables);
+
     this.updateIgnoreFocusOut();
 
     actionStack.push({ id: 'input-hints', action: this.dispose.bind(this) });
@@ -173,13 +165,9 @@ export class InputHint<T extends HintItem> {
 
   private updateIgnoreFocusOut() {
     if (!this.ignoreFocusOut) {
-      const disposables: IDisposable[] = [];
-      Event.fromDOMEvent(this.input, 'blur')(this.dispose, this, disposables);
-      Event.fromDOMEvent(this.mask, 'click')(this.dispose, this, disposables);
-      this.ignoreFocusOutDisposable = Disposable.toDisposable(() => Disposable.dispose(disposables));
+      this.palette.classList.remove('ignore-focus-out');
     } else {
-      this.ignoreFocusOutDisposable?.dispose();
-      this.ignoreFocusOutDisposable = undefined;
+      this.palette.classList.add('ignore-focus-out');
     }
   }
 
@@ -193,9 +181,7 @@ export class InputHint<T extends HintItem> {
 
   public dispose(): void {
     actionStack.remove('input-hints');
-    this.ignoreFocusOutDisposable?.dispose();
     this.disposables = Disposable.dispose(this.disposables);
-    this.style.remove();
     this.palette.remove();
     this.mask.remove();
     this.isDisposed = true;
