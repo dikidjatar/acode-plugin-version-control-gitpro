@@ -1,5 +1,10 @@
 # ChangeLog
 
+## [2.2.1] - 2025-01-18
+- Improved UI
+- Add remote source
+- Fixed some bugs
+
 ## [2.2.0] - 2026-01-05
 
 Features Added:
