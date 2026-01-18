@@ -1,10 +1,10 @@
-import { Disposable } from "../base/disposable";
 import { config } from "../base/config";
+import { Disposable } from "../base/disposable";
 import { IIPCHandler, IIPCServer } from "./ipc/ipcServer";
 import { LogOutputChannel } from "./logger";
 import { toFullPath } from "./utils";
 
-const EditorFile = acode.require('editorFile') as any;
+const EditorFile = acode.require('editorFile');
 const Url = acode.require('Url');
 const fs = acode.require('fs');
 
@@ -117,9 +117,9 @@ export class GitEditor implements IIPCHandler {
     }
 
     commitMessagePath = toFullPath(commitMessagePath);
-    const filename = Url.basename(commitMessagePath);
+    const filename = Url.basename(commitMessagePath)!;
 
-    const file: Acode.EditorFile = new EditorFile(filename, { uri: `file://${commitMessagePath}` });
+    const file = new EditorFile(filename, { uri: `file://${commitMessagePath}` });
     file.makeActive();
 
     if (localStorage.sidebarShown === '1') {

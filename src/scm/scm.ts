@@ -17,7 +17,6 @@ import { IMainSCM, ISCMCommandAction, ISCMCommandService, ISCMMenuItem, ISCMProv
 import { comparePaths } from './utils';
 
 const terminal = acode.require('terminal');
-const Url = acode.require('Url');
 
 type ProviderHandle = number;
 type GroupHandle = number;

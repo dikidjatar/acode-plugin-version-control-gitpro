@@ -14,14 +14,14 @@ import { Repository, Resource, ResourceGroupType } from "./repository";
 import { toGitUri } from "./uri";
 import { fromNow, getModeForFile, grep, isDescendant, pathEquals } from "./utils";
 
-const fileBrowser = acode.require('fileBrowser') as any;
+const fileBrowser = acode.require('fileBrowser');
 const Url = acode.require('Url');
 const confirm = acode.require('confirm');
 const openFolder = acode.require('openFolder');
 const prompt = acode.require('prompt');
 const select = acode.require('select');
 const loader = acode.require('loader');
-const EditorFile: any = acode.require('EditorFile');
+const EditorFile = acode.require('EditorFile');
 const DialogBox = acode.require('DialogBox');
 const multiPrompt = acode.require('multiPrompt');
 
@@ -604,7 +604,7 @@ export class CommandCenter {
     }
 
     const cloneLoader: any = loader.create('Loading', `Cloning git repository "${url}"`, {
-      callback: () => window.toast('Clone timeout', 3000),
+      oncancel: () => window.toast('Clone timeout', 3000),
       timeout: 120000
     });
     try {
@@ -717,7 +717,7 @@ export class CommandCenter {
       return;
     }
 
-    const file: Acode.EditorFile = new EditorFile(Url.basename(uri), { uri });
+    const file = new EditorFile(Url.basename(uri)!, { uri });
     file.makeActive();
 
     if (localStorage.sidebarShown === '1') {

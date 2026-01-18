@@ -1,30 +1,3 @@
-declare const app: HTMLBodyElement;
-declare const strings: { [key: string]: string };
-declare const Terminal: Terminal;
-declare const Executor: Executor;
-declare const system: any;
-declare const cordova: any;
-
-interface Acode {
-  addIcon(iconName: string, iconSrc: string, options: { monochrome: boolean }): void;
-}
-
-interface Terminal {
-  isInstalled(): Promise<boolean>;
-}
-
-interface Executor {
-  execute(command: string, alpine?: boolean): Promise<string>;
-  /**
-   * @returns uuid
-   */
-  start(command: string, onData: (type: string, data: string) => void, alpine?: boolean): Promise<string>;
-  isRunning(uuid: string): Promise<boolean>;
-  write(uuid: string, input: string): Promise<void>;
-  stop(uuid: string): Promise<void>;
-  BackgroundExecutor: Omit<Executor, 'BackgroundExecutor'>;
-}
-
 interface ISCMConfig {
   readonly inputMaxLineCount: number;
   readonly inputMinLineCount: number;

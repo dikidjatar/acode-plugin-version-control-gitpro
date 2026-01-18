@@ -2,7 +2,7 @@ import * as Diff from 'diff';
 import './diff.scss';
 import { getModeForFile } from './utils';
 
-const EditorFile = acode.require('EditorFile') as unknown as typeof Acode.EditorFile;
+const EditorFile = acode.require('EditorFile');
 const Url = acode.require('Url');
 const fsOperation = acode.require('fsOperation');
 const Range = ace.require('ace/range').Range;

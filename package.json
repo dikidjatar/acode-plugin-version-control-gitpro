@@ -7,12 +7,10 @@
   "author": "Diki Djatar",
   "license": "MIT",
   "dependencies": {
-    "@acode-app/types": "^1.11.2",
-    "diff": "5.1.0",
-    "html-tag-js": "^1.8.2"
+    "diff": "5.1.0"
   },
   "devDependencies": {
-    "@types/cordova": "^11.0.3",
+    "@acode-app/types": "dikidjatar/acode-app_types",
     "esbuild": "^0.24.2",
     "esbuild-sass-plugin": "^3.3.1",
     "jszip": "^3.10.1",
