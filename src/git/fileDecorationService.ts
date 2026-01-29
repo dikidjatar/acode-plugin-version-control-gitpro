@@ -1,8 +1,9 @@
+import { debounce } from "../base/decorators";
 import { Disposable, DisposableStore, IDisposable } from "../base/disposable";
 import { Event } from "../base/event";
 import { uriToPath } from "../base/uri";
 
-const sidebarApps = acode.require('sidebarApps');
+const sidebarApps = acode.require("sidebarApps");
 
 export class FileDecoration {
   badge?: string;
@@ -19,93 +20,78 @@ export class FileDecoration {
 
 export interface FileDecorationProvider extends IDisposable {
   onDidChangeFileDecorations?: Event<string[]>;
-  provideFileDecoration(uri: string): FileDecoration | undefined | Promise<FileDecoration | undefined>;
+  provideFileDecoration(
+    uri: string,
+  ): FileDecoration | undefined | Promise<FileDecoration | undefined>;
 }
 
 export class AcodeFileDecorationService {
-
   private readonly providers: Set<FileDecorationProvider> = new Set();
-  private readonly container: HTMLElement | undefined;
-  private readonly observer: MutationObserver;
+  private readonly filesContainer: HTMLElement | undefined;
 
   private readonly disposables = new DisposableStore();
 
   constructor() {
-    this.container = sidebarApps.get('files');
-    this.observer = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-          const target = mutation.target;
+    this.filesContainer = sidebarApps.get("files");
 
-          if (target instanceof HTMLElement) {
-            if (target.classList.contains('collapsible')) {
-              setTimeout(() => this.processNode(target), 100);
-            }
-          }
-        }
+    Event.fromEditorManager("new-file")((file) => {
+      if (file.tab instanceof HTMLElement) {
+        file.tab.setAttribute("data-url", file.uri);
+        this.applyDecoration(file.tab);
       }
     });
-
-    if (this.container) {
-      this.observer.observe(this.container, {
-        attributes: true,
-        subtree: true,
-        attributeFilter: ['class']
-      });
-    }
-
-    const onEditorFile = () => {
-      this.updateFileTabUrl();
-      this.processNode(editorManager.openFileList);
-    }
-
-    editorManager.on('new-file', onEditorFile);
-    editorManager.on('rename-file', onEditorFile);
-
-    this.disposables.add(Disposable.toDisposable(() => {
-      editorManager.off('new-file', onEditorFile);
-      editorManager.off('rename-file', onEditorFile);
-    }));
   }
 
-  registerFileDecorationProvider(provider: FileDecorationProvider): IDisposable {
+  registerFileDecorationProvider(
+    provider: FileDecorationProvider,
+  ): IDisposable {
     const disposable = new DisposableStore();
     this.providers.add(provider);
-    provider.onDidChangeFileDecorations?.(this.refresh, this, disposable);
+    provider.onDidChangeFileDecorations?.(
+      this.onDidChangeFileDecorations,
+      this,
+      disposable,
+    );
 
     this.refresh();
 
-    disposable.add(Disposable.toDisposable(() => {
-      this.providers.delete(provider);
-      this.refresh();
-    }));
+    disposable.add(
+      Disposable.toDisposable(() => {
+        this.providers.delete(provider);
+        this.refresh();
+      }),
+    );
 
     return disposable;
   }
 
-  private refresh(): void {
-    if (this.container) {
-      this.processNode(this.container);
-    }
+  @debounce(500)
+  private onDidChangeFileDecorations(): void {
+    this.refresh();
+  }
 
+  private refresh(): void {
+    const elements: Node[] = [];
+    if (this.filesContainer) {
+      elements.push(...this.filesContainer.querySelectorAll(".tile[data-url]"));
+    }
     this.updateFileTabUrl();
-    this.processNode(editorManager.openFileList);
+    elements.push(
+      ...editorManager.openFileList.querySelectorAll(".tile[data-url]"),
+    );
+
+    elements.forEach((element) => this.applyDecoration(element as HTMLElement));
   }
 
   private updateFileTabUrl(): void {
     editorManager.files
-      .filter(file => !!file.uri)
-      .forEach(file => {
+      .filter((file) => !!file.uri)
+      .forEach((file) => {
         const fieTab = file.tab as unknown;
         if (fieTab instanceof HTMLElement) {
-          fieTab.setAttribute('data-url', file.uri);
+          fieTab.setAttribute("data-url", file.uri);
         }
       });
-  }
-
-  private processNode(node: HTMLElement): void {
-    const elements = Array.from(node.querySelectorAll('.tile[data-url]')) as HTMLElement[];
-    elements.forEach(element => this.applyDecoration(element));
   }
 
   private applyDecoration(element: HTMLElement) {
@@ -126,7 +112,7 @@ export class AcodeFileDecorationService {
         if (decoration.propagate !== false) {
           this.renderFileDecoration(element, decoration);
         }
-      }
+      };
 
       const result = provider.provideFileDecoration(path);
 
@@ -138,20 +124,23 @@ export class AcodeFileDecorationService {
     }
   }
 
-  private renderFileDecoration(element: HTMLElement, decoration: FileDecoration) {
+  private renderFileDecoration(
+    element: HTMLElement,
+    decoration: FileDecoration,
+  ) {
     this.clearDecoration(element);
 
-    const text = element.querySelector('.text') as HTMLElement;
-    const badge = tag('span', {
-      className: 'badge',
+    const text = element.querySelector(".text") as HTMLElement;
+    const badge = tag("span", {
+      className: "badge",
       style: {
-        fontSize: '1em',
-        height: '30px',
-        minWidth: '30px',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center'
-      }
+        fontSize: "1em",
+        height: "30px",
+        minWidth: "30px",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+      },
     });
 
     if (decoration.color) {
@@ -171,11 +160,11 @@ export class AcodeFileDecorationService {
   }
 
   private clearDecoration(element: HTMLElement) {
-    const text = element.querySelector('.text') as HTMLElement;
-    const badge = element.querySelector('.badge');
+    const text = element.querySelector(".text") as HTMLElement;
+    const badge = element.querySelector(".badge");
 
     if (text) {
-      text.style.color = 'var(--primary-text-color)';
+      text.style.color = "var(--primary-text-color)";
     }
 
     if (badge) {
@@ -184,8 +173,7 @@ export class AcodeFileDecorationService {
   }
 
   dispose(): void {
-    this.observer.disconnect();
-    this.providers.forEach(provider => provider.dispose());
+    this.providers.forEach((provider) => provider.dispose());
     this.disposables.dispose();
   }
 }
