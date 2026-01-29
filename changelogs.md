@@ -1,6 +1,9 @@
 # ChangeLog
+## [2.1.2] - 2026-29-01
+- Optimized performance and stability
+- Fixed some bugs
 
-## [2.2.1] - 2025-01-18
+## [2.2.1] - 2026-01-18
 - Improved UI
 - Add remote source
 - Fixed some bugs
