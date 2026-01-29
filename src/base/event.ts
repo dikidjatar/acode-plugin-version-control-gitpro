@@ -193,6 +193,28 @@ export namespace Event {
     };
   }
 
+  export function fromEditorManager(event: | "file-content-changed" | "file-loaded" | "remove-file" | "save-file" | "switch-file"): Event<Acode.EditorFile>;
+  export function fromEditorManager(event: "add-folder" | "remove-folder" | "update-folder"): Event<{ url: string; name: string }>;
+  export function fromEditorManager(event: Acode.EditorEvent): Event<any>;
+  export function fromEditorManager(event: any): Event<any> {
+    return (listener, thiArgs?, disposables?) => {
+      const handler = (arg: any) => listener.call(thiArgs, arg);
+      editorManager.on(event, handler);
+
+      const disposable = Disposable.toDisposable(() => {
+        editorManager.off(event, handler);
+      });
+
+      if (disposables instanceof DisposableStore) {
+        disposables.add(disposable);
+      } else if (Array.isArray(disposables)) {
+        disposables.push(disposable);
+      }
+
+      return disposable;
+    }
+  }
+
   export function toPromise<T>(event: Event<T>): Promise<T> {
     return new Promise<T>((resolve) => once(event)(resolve));
   }
