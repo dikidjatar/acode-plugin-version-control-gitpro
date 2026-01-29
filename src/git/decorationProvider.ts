@@ -35,15 +35,13 @@ class GitIgnoreDecorationProvider implements FileDecorationProvider {
       model.onDidCloseRepository
     );
 
-    const onSaveFile = (file: Acode.EditorFile) => {
+    Event.fromEditorManager('save-file')(file => {
       if (/\.gitignore$|\.git\/info\/exclude$/.test(uriToPath(file.uri))) {
         this._onDidChangeDecorations.fire([]);
       }
-    }
-    editorManager.on('save-file', onSaveFile);
+    }, null, this.disposables);
 
     this.disposables.push(onDidChangeRepository(() => this._onDidChangeDecorations.fire([])));
-    this.disposables.push(Disposable.toDisposable(() => editorManager.off('save-file', onSaveFile)));
     this.disposables.push(decorationService.registerFileDecorationProvider(this));
   }
 
