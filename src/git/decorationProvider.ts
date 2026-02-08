@@ -4,32 +4,29 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { config } from "../base/config";
+import { DecorationProvider, decorationService, FileDecoration } from "../base/decorationService";
 import { debounce } from "../base/decorators";
 import { Disposable, IDisposable } from "../base/disposable";
 import { Emitter, Event } from "../base/event";
 import { uriToPath } from "../base/uri";
 import { Status } from "./api/git";
-import { AcodeFileDecorationService, FileDecoration, FileDecorationProvider } from "./fileDecorationService";
 import { Model } from "./model";
 import { GitResourceGroup, Repository } from "./repository";
 import { PromiseSource } from "./utils";
 
 const Url = acode.require('Url');
 
-class GitIgnoreDecorationProvider implements FileDecorationProvider {
+class GitIgnoreDecorationProvider implements DecorationProvider {
 
   private static Decoration: FileDecoration = { color: '#8C8C8C' };
 
-  private readonly _onDidChangeDecorations = new Emitter<string[]>();
-  readonly onDidChangeFileDecorations: Event<string[]> = this._onDidChangeDecorations.event;
+  private readonly _onDidChangeDecorations = new Emitter<string[] | undefined>();
+  readonly onDidChangeFileDecorations: Event<string[] | undefined> = this._onDidChangeDecorations.event;
 
   private queue = new Map<string, { repository: Repository; queue: Map<string, PromiseSource<FileDecoration | undefined>> }>();
   private disposables: IDisposable[] = [];;
 
-  constructor(
-    private model: Model,
-    decorationService: AcodeFileDecorationService
-  ) {
+  constructor(private model: Model) {
     const onDidChangeRepository = Event.any<any>(
       model.onDidOpenRepository,
       model.onDidCloseRepository
@@ -37,11 +34,11 @@ class GitIgnoreDecorationProvider implements FileDecorationProvider {
 
     Event.fromEditorManager('save-file')(file => {
       if (/\.gitignore$|\.git\/info\/exclude$/.test(uriToPath(file.uri))) {
-        this._onDidChangeDecorations.fire([]);
+        this._onDidChangeDecorations.fire(undefined);
       }
     }, null, this.disposables);
 
-    this.disposables.push(onDidChangeRepository(() => this._onDidChangeDecorations.fire([])));
+    this.disposables.push(onDidChangeRepository(() => this._onDidChangeDecorations.fire(undefined)));
     this.disposables.push(decorationService.registerFileDecorationProvider(this));
   }
 
@@ -96,7 +93,7 @@ class GitIgnoreDecorationProvider implements FileDecorationProvider {
   }
 }
 
-class GitDecorationProvider implements FileDecorationProvider {
+class GitDecorationProvider implements DecorationProvider {
 
   private static SubmoduleDecorationData: FileDecoration = {
     badge: 'S',
@@ -109,10 +106,7 @@ class GitDecorationProvider implements FileDecorationProvider {
   private disposables: IDisposable[] = [];
   private decorations = new Map<string, FileDecoration>();
 
-  constructor(
-    private repository: Repository,
-    decorationService: AcodeFileDecorationService
-  ) {
+  constructor(private repository: Repository) {
     this.disposables.push(
       decorationService.registerFileDecorationProvider(this),
       Event.runAndSubscribe(repository.onDidRunGitStatus, () => this.onDidRunGitStatus())
@@ -169,11 +163,8 @@ export class GitDecorations {
   private modelDisposables: IDisposable[] = [];
   private providers = new Map<Repository, IDisposable>();
 
-  constructor(
-    private model: Model,
-    private decorationService: AcodeFileDecorationService
-  ) {
-    this.disposables.push(new GitIgnoreDecorationProvider(model, decorationService));
+  constructor(private model: Model) {
+    this.disposables.push(new GitIgnoreDecorationProvider(model));
 
     const onEnablementChange = Event.filter(config.onDidChangeConfiguration, e => e.affectsConfiguration('vcgit.decorationsEnabled'));
     onEnablementChange(this.update, this, this.disposables);
@@ -209,7 +200,7 @@ export class GitDecorations {
   }
 
   private onDidOpenRepository(repository: Repository): void {
-    this.providers.set(repository, new GitDecorationProvider(repository, this.decorationService));
+    this.providers.set(repository, new GitDecorationProvider(repository));
   }
 
   private onDidCloseRepository(repository: Repository): void {

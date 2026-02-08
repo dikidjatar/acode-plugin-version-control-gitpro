@@ -11,7 +11,7 @@ import { CommandActions } from "./actions";
 import { ApiRepository } from "./api/api1";
 import { Branch, BranchQuery, Change, Commit, CommitOptions, FetchOptions, ForcePushMode, GitErrorCodes, LogOptions, Ref, RefType, Remote, Status } from "./api/git";
 import { AutoFetcher } from "./autofetch";
-import { FileDecoration } from "./fileDecorationService";
+import { FileDecoration } from "../base/decorationService";
 import { FileSystemWatcher, RelativePattern } from "./fileSystemWatcher";
 import { Repository as BaseRepository, GitError, LsTreeElement, PullOptions, RefQuery, Stash, Submodule } from "./git";
 import { LogOutputChannel } from "./logger";

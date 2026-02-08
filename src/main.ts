@@ -1,13 +1,14 @@
 import plugin from '../plugin.json';
 import { App } from './base/app';
 import { config } from './base/config';
+import { decorationService } from './base/decorationService';
 import { Disposable, IDisposable } from './base/disposable';
 import { Event } from './base/event';
+import { registerFilesDecorations } from './base/fileDecoration';
 import { GitPluginImpl } from './git/api/plugin';
 import { AskPass } from './git/askpass';
 import { CommandCenter } from './git/commands';
 import { GitDecorations } from './git/decorationProvider';
-import { AcodeFileDecorationService } from './git/fileDecorationService';
 import { GitFileSystem, GitFileSystemProvider } from './git/fileSystemProvider';
 import { findGit, Git, IGit } from './git/git';
 import { GitEditor } from './git/gitEditor';
@@ -161,12 +162,11 @@ async function createModel(logger: LogOutputChannel, disposables: IDisposable[])
 	}, git, disposables);
 
 	const gitFs = new GitFileSystem(model, logger);
-	const decorationServics = new AcodeFileDecorationService();
 	disposables.push(
 		gitFs,
-		decorationServics,
+		decorationService,
 		new CommandCenter(git, model, logger),
-		new GitDecorations(model, decorationServics)
+		new GitDecorations(model)
 	);
 
 	fsOperation.extend(GitFileSystemProvider.test, (url) => new GitFileSystemProvider(url, gitFs));
@@ -243,6 +243,7 @@ async function initialize(baseUrl: string, options: Acode.PluginInitOptions): Pr
 
 	const scmViewContainer = scm.getViewContainer();
 	initializeViews(scmViewContainer);
+	disposables.push(registerFilesDecorations());
 
 	if (!await Terminal.isInstalled()) {
 		App.setContext('acode.terminalMissing', true);
