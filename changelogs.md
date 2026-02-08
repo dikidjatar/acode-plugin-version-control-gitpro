@@ -1,5 +1,10 @@
 # ChangeLog
-## [2.1.2] - 2026-29-01
+
+## [2.2.3] - 2026-09-02
+- Refined UI decorations and styling
+- Optimized performance and stability
+
+## [2.2.2] - 2026-29-01
 - Optimized performance and stability
 - Fixed some bugs
 
