@@ -4,7 +4,7 @@ import { config } from './base/config';
 import { decorationService } from './base/decorationService';
 import { Disposable, IDisposable } from './base/disposable';
 import { Event } from './base/event';
-import { registerFilesDecorations } from './base/fileDecoration';
+import { FileTreeDecoration } from './base/fileDecoration';
 import { GitPluginImpl } from './git/api/plugin';
 import { AskPass } from './git/askpass';
 import { CommandCenter } from './git/commands';
@@ -243,7 +243,7 @@ async function initialize(baseUrl: string, options: Acode.PluginInitOptions): Pr
 
 	const scmViewContainer = scm.getViewContainer();
 	initializeViews(scmViewContainer);
-	disposables.push(registerFilesDecorations());
+	disposables.push(new FileTreeDecoration());
 
 	if (!await Terminal.isInstalled()) {
 		App.setContext('acode.terminalMissing', true);
