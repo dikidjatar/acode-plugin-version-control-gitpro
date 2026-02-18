@@ -42,7 +42,7 @@ interface ActionButtonTemplate {
 
 class ActionButtonRenderer implements IListRenderer<ISCMActionButton, ActionButtonTemplate> {
 
-  static readonly DEFAULT_HEIGHT = 36;
+  static readonly DEFAULT_HEIGHT = 40;
 
   static readonly TEMPLATE_ID = 'actionButton';
   get templateId(): string { return ActionButtonRenderer.TEMPLATE_ID; }
@@ -92,7 +92,7 @@ let WIDGET_ID = 0;
 
 class InputRenderer implements IListRenderer<ISCMInput, InputTemplate> {
 
-  public static readonly DEFAULT_HEIGHT = 34;
+  public static readonly DEFAULT_HEIGHT = 38;
 
   public static readonly TEMPLATE_ID = 'input';
   get templateId(): string { return InputRenderer.TEMPLATE_ID; }
@@ -308,7 +308,7 @@ class ListDelegate implements IListDelegate<TreeElement> {
     } else if (isSCMSeparator(element)) {
       return 5;
     } else {
-      return 30;
+      return 34;
     }
   }
 
@@ -400,7 +400,7 @@ class SCMInputWidget {
   }
 
   getContentHeight(): number {
-    const lineHeight = 16;
+    const lineHeight = 24;
     const height = this.inputElement.scrollHeight;
 
     const scmConfig = config.get('scm');
@@ -937,7 +937,7 @@ export class SCMView extends Disposable.Disposable implements IView {
     const rootHeight = this.container.getBoundingClientRect().height;
     const headerHeight = this.container.querySelector('.header')!.getBoundingClientRect().height;
     const repositoriesViewPaneElement = this.container.querySelectorAll('.list.collapsible')[0] as HTMLElement;
-    const repositoriesViewHeight = repositoriesViewPaneElement?.getBoundingClientRect().height || 30;
+    const repositoriesViewHeight = repositoriesViewPaneElement?.getBoundingClientRect().height || 34;
 
     const { dispose } = Event.fromDOMEvent(repositoriesViewPaneElement, 'click')(() => {
       this.updateHeight(this.list.contentHeight);
@@ -945,12 +945,12 @@ export class SCMView extends Disposable.Disposable implements IView {
     });
 
     const size = rootHeight - headerHeight - repositoriesViewHeight;
-    const maxSize = Math.min(contentHeight + 30, size);
+    const maxSize = Math.min(contentHeight + 34, size);
 
     if (this.list.isExpanded()) {
       this.list.layout(empty ? Number.POSITIVE_INFINITY : maxSize);
     } else {
-      this.list.layout(30);
+      this.list.layout(34);
     }
   }
 

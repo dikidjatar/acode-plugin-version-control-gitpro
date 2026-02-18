@@ -344,18 +344,23 @@
       >.scm-input-container {
         width: 100%;
         height: 100%;
+        padding: 0 8px;
         display: flex;
         justify-content: center;
         align-items: center;
         box-sizing: border-box;
+        position: relative;
 
         >textarea {
           margin: 0 !important;
-          padding: 0 !important;
+          padding: 10px !important;
+          width: 100% !important;
           height: 100% !important;
+          line-height: 24px !important;
           pointer-events: all !important;
           resize: none !important;
-          overflow-y: auto;
+          overflow-y: auto !important;
+          border: 1px solid var(--border-color);
           color: var(--primary-text-color);
           font-family: inherit;
         }

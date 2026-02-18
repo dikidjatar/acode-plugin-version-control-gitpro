@@ -8,7 +8,7 @@ import { isSCMRepository } from "./utils";
 class ListDelegate implements IListDelegate<ISCMRepository> {
 
   getHeight(element: ISCMRepository): number {
-    return 30;
+    return 34;
   }
 
   getTemplateId(element: ISCMRepository): string {
