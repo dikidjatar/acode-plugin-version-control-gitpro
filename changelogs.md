@@ -1,5 +1,11 @@
 # ChangeLog
 
+## [2.2.4] - 2026-18-02
+- Improve file tree decoration
+- Fix loss of decoration when folder is expanded/collapsed
+- Fixed decoration still shows after commits/discard changes
+- Fixed several bugs related to file decoration
+
 ## [2.2.3] - 2026-09-02
 - Refined UI decorations and styling
 - Optimized performance and stability
