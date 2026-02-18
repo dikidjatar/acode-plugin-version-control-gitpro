@@ -1,5 +1,6 @@
 import { config } from "../base/config";
 import { Disposable } from "../base/disposable";
+import { getExecutor } from "../base/executor";
 import { IIPCHandler, IIPCServer } from "./ipc/ipcServer";
 import { LogOutputChannel } from "./logger";
 import { toFullPath } from "./utils";
@@ -98,7 +99,7 @@ export class GitEditor implements IIPCHandler {
     try {
       await this.clean();
       await fs(`file://${this.rootPath}`).createFile('git-editor.sh', SCRIPT);
-      await Executor.execute(`chmod +x ${Url.join(this.rootPath, 'git-editor.sh')}`, true);
+      await getExecutor().execute(`chmod +x ${Url.join(this.rootPath, 'git-editor.sh')}`, true);
     } catch (err) {
       this.logger.error(`[GitEditor][setupScript] error: ${err}`);
     }

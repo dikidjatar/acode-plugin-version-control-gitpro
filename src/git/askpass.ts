@@ -3,6 +3,7 @@ import { config } from "../base/config";
 import { Credentials, CredentialsProvider } from "./api/git";
 import { IIPCHandler, IIPCServer } from "./ipc/ipcServer";
 import { LogOutputChannel } from "./logger";
+import { getExecutor } from "../base/executor";
 
 const Url = acode.require('Url');
 const fs = acode.require('fs');
@@ -168,8 +169,8 @@ export class AskPass implements IIPCHandler {
       // Make scripts executable
       const askpassPath = Url.join(this.rootPath, 'askpass.sh');
       const sshAskpassPath = Url.join(this.rootPath, 'ssh-askpass.sh');
-      await Executor.execute(`chmod +x ${askpassPath}`, true);
-      await Executor.execute(`chmod +x ${sshAskpassPath}`, true);
+      await getExecutor().execute(`chmod +x ${askpassPath}`, true);
+      await getExecutor().execute(`chmod +x ${sshAskpassPath}`, true);
     } catch (err) {
       this.logger.error(`[Askpass][setupScript] error: ${err}`);
     }

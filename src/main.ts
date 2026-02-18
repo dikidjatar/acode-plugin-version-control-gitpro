@@ -4,6 +4,7 @@ import { config } from './base/config';
 import { decorationService } from './base/decorationService';
 import { Disposable, IDisposable } from './base/disposable';
 import { Event } from './base/event';
+import { getExecutor } from './base/executor';
 import { FileTreeDecoration } from './base/fileDecoration';
 import { GitPluginImpl } from './git/api/plugin';
 import { AskPass } from './git/askpass';
@@ -96,7 +97,7 @@ async function destroy() {
 async function findShell(logger?: LogOutputChannel): Promise<string | undefined> {
 	const find = async (shell: string) => {
 		try {
-			const result = await Executor.execute(`which ${shell}`, true);
+			const result = await getExecutor().execute(`which ${shell}`, true);
 			return result.trim();
 		} catch (err) {
 			logger?.error(`Find ${shell} error: ${err}`);

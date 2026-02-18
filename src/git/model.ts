@@ -3,6 +3,7 @@ import { config } from "../base/config";
 import { debounce, memoize, sequentialize, throttle } from "../base/decorators";
 import { Disposable, IDisposable } from "../base/disposable";
 import { Emitter, Event } from "../base/event";
+import { getExecutor } from "../base/executor";
 import { uriToPath } from "../base/uri";
 import { SourceControl, SourceControlResourceGroup } from "../scm/api/sourceControl";
 import { ApiRepository } from "./api/api1";
@@ -436,7 +437,7 @@ export class Model implements IRepositoryResolver, IRemoteSourcePublisherRegistr
 
   private async getRepositoryRootRealPath(repositoryRoot: string): Promise<string | undefined> {
     try {
-      const result = await Executor.execute(`realpath "${repositoryRoot}"`, true);
+      const result = await getExecutor().execute(`realpath "${repositoryRoot}"`, true);
       const repositoryRootRealPath = result.trim();
       return !pathEquals(repositoryRoot, repositoryRootRealPath) ? repositoryRootRealPath : undefined;
     } catch (error) {
@@ -562,7 +563,7 @@ export class Model implements IRepositoryResolver, IRemoteSourcePublisherRegistr
 
     try {
       // Use the repository real path
-      const result = await Executor.execute(`realpath "${repoPath}"`, true);
+      const result = await getExecutor().execute(`realpath "${repoPath}"`, true);
       const repoPathRealPath = result.trim();
       const openRepositoryRealPath = this.openRepositories
         .find(r => pathEquals(r.repository.rootRealPath ?? r.repository.root, repoPathRealPath));

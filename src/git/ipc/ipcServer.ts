@@ -1,5 +1,6 @@
 import { App } from "../../base/app";
 import { Disposable, IDisposable } from "../../base/disposable";
+import { getExecutor } from "../../base/executor";
 import { LogOutputChannel } from "../logger";
 
 const fs = acode.require('fs');
@@ -36,7 +37,7 @@ class IPCServer implements IIPCServer {
       await pipe.delete();
     }
 
-    await Executor.execute(`mkfifo "${this.requestPipe}"`, true);
+    await getExecutor().execute(`mkfifo "${this.requestPipe}"`, true);
     this.startListener();
   }
 
@@ -74,7 +75,7 @@ class IPCServer implements IIPCServer {
   private async sendResponse(pipePath: string, data: string): Promise<void> {
     try {
       this.logger.debug(`[IPC][sendResponse] response=${data}`);
-      await Executor.execute(`echo '${data}' > "${pipePath}"`, true);
+      await getExecutor().execute(`echo '${data}' > "${pipePath}"`, true);
     } catch (err) {
       this.logger.error(`[IPC] Failed to write response: ${err}`);
     }

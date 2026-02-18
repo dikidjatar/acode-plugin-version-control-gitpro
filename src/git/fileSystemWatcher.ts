@@ -1,10 +1,11 @@
 import { IDisposable } from "../base/disposable";
 import { Emitter, Event } from "../base/event";
 import { config, ConfigurationChangeEvent } from "../base/config";
+import { getExecutor } from "../base/executor";
 
 async function findInotify(): Promise<string | undefined> {
   try {
-    const result = await Executor.execute('which inotifywait', true);
+    const result = await getExecutor().execute('which inotifywait', true);
     return result.trim();
   } catch (err) {
     return undefined;
@@ -101,20 +102,22 @@ export class FileSystemWatcher implements IDisposable {
 
     while (this.enabled && !this.isDisposed) {
       try {
-        const data = await new Promise<string | undefined>(async (c) => {
-          const timeout = setTimeout(() => c(undefined), 180000);
-          const result = await Executor.execute(`${inotifywait} -r -q --format '%e|%w%f' -e create,delete,modify,move '${this.watchPath}'`, true);
-          clearTimeout(timeout);
-          c(result);
-        });
+        // const data = await new Promise<string | undefined>(async (c) => {
+        //   const timeout = setTimeout(() => c(undefined), 180000);
+        //   const result = await getExecutor().execute(`${inotifywait} -r -q --format '%e|%w%f' -e create,delete,modify,move '${this.watchPath}'`, true);
+        //   clearTimeout(timeout);
+        //   c(result);
+        // });
+        const result = await getExecutor().execute(`${inotifywait} -r -q --format '%e|%w%f' -e create,delete,modify,move '${this.watchPath}'`, true);
 
         if (!this.enabled) {
           return;
         }
 
-        if (typeof data !== 'undefined') {
-          this.onOutput(data);
-        }
+        // if (typeof data !== 'undefined') {
+        //   this.onOutput(data);
+        // }
+        this.onOutput(result);
       } catch { }
     }
   }

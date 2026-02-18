@@ -46,8 +46,8 @@ interface MutableRemote extends Remote {
 
 export async function findGit(): Promise<IGit> {
   try {
-    const path = await Executor.execute('which git', true);
-    const version = await Executor.execute('git --version', true);
+    const path = await process.getExecutor().execute('which git', true);
+    const version = await process.getExecutor().execute('git --version', true);
     return { path: path.trim(), version: version.trim().replace(/^git version /, '') };
   } catch (err) {
     throw new Error('Git installation not found.');
