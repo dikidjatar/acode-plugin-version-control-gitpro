@@ -937,7 +937,7 @@ export class SCMView extends Disposable.Disposable implements IView {
     const rootHeight = this.container.getBoundingClientRect().height;
     const headerHeight = this.container.querySelector('.header')!.getBoundingClientRect().height;
     const repositoriesViewPaneElement = this.container.querySelectorAll('.list.collapsible')[0] as HTMLElement;
-    const repositoriesViewHeight = repositoriesViewPaneElement?.getBoundingClientRect().height || 34;
+    const repositoriesViewHeight = repositoriesViewPaneElement?.getBoundingClientRect().height || 36;
 
     const { dispose } = Event.fromDOMEvent(repositoriesViewPaneElement, 'click')(() => {
       this.updateHeight(this.list.contentHeight);
@@ -945,12 +945,12 @@ export class SCMView extends Disposable.Disposable implements IView {
     });
 
     const size = rootHeight - headerHeight - repositoriesViewHeight;
-    const maxSize = Math.min(contentHeight + 34, size);
+    const maxSize = Math.min(contentHeight + 36, size);
 
     if (this.list.isExpanded()) {
       this.list.layout(empty ? Number.POSITIVE_INFINITY : maxSize);
     } else {
-      this.list.layout(34);
+      this.list.layout(36);
     }
   }
 
