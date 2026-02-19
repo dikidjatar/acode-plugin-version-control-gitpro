@@ -32,7 +32,7 @@ type DecorationEntry = Map<DecorationProvider, DecorationDataRequest | FileDecor
 class DecorationsService {
 
   private readonly _store = new DisposableStore();
-  private readonly _provider: DecorationProvider[] = [];
+  private _provider: DecorationProvider[] = [];
   private readonly _data: Map<string, DecorationEntry> = new Map();
 
   private readonly _onDidChangeDecorations = new Emitter<void>();
@@ -70,6 +70,7 @@ class DecorationsService {
       });
 
     return Disposable.toDisposable(() => {
+      this._provider = this._provider.filter(p => p !== provider);
       listener.dispose();
       removeAll();
     });
