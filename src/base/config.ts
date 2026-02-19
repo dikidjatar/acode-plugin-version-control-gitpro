@@ -29,6 +29,38 @@ function getNested(obj: any, parts: string[]): any {
   return cur;
 }
 
+function mergeConfigWithDefaults(existing: any, defaults: any): any {
+  if (!existing || typeof existing !== 'object' || Array.isArray(existing)) {
+    return { ...defaults };
+  }
+
+  // Merge existing values with defaults, removing obsolete keys
+  const merged = { ...defaults };
+  for (const key in existing) {
+    if (key in merged) {
+      // Keep existing value if key exists in defaults
+      const existingVal = existing[key];
+      const defaultVal = merged[key];
+
+      if (
+        existingVal !== null &&
+        typeof existingVal === 'object' &&
+        !Array.isArray(existingVal) &&
+        defaultVal !== null &&
+        typeof defaultVal === 'object' &&
+        !Array.isArray(defaultVal)
+      ) {
+        merged[key] = mergeConfigWithDefaults(existingVal, defaultVal);
+      } else {
+        merged[key] = existingVal;
+      }
+    }
+    // Keys not in defaults are automatically removed
+  }
+
+  return merged;
+}
+
 export interface ConfigurationChangeEvent<T extends keyof Acode.ISettings = keyof Acode.ISettings> {
   affectsConfiguration(key: T): boolean;
   affectsConfiguration(key: `${T}.${any}`): boolean;
@@ -45,14 +77,19 @@ class Config {
   private readonly listeners: Map<keyof Acode.ISettings, (value: any) => void> = new Map();
 
   async init<T extends keyof Acode.ISettings>(key: T, value: Acode.ISettings[T]): Promise<IDisposable> {
-    const exiting = appSettings.get(key);
-    if (!exiting) {
-      appSettings.value[key] = value;
+    const existing = appSettings.get(key);
+
+    // Merge existing config with defaults to handle updates and removals
+    const mergedConfig = existing ? mergeConfigWithDefaults(existing, value) : value;
+    const configChanged = !isEqual(existing, mergedConfig);
+
+    // Update config if it was merged or doesn't exist
+    if (configChanged || !existing) {
+      appSettings.value[key] = mergedConfig;
       await appSettings.update({}, true, true);
-      this.lastConfigMap.set(key, value);
-    } else {
-      this.lastConfigMap.set(key, exiting);
     }
+
+    this.lastConfigMap.set(key, mergedConfig);
 
     const listener = (newVal: Acode.ISettings[T] | undefined) => {
       this._handleAppSettingsUpdate(key, newVal);
