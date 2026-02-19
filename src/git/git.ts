@@ -419,6 +419,11 @@ export class Git {
   private log(output: string): void {
     this._onOutput.fire(output);
   }
+
+  async addSafeDirectory(repositoryPath: string): Promise<void> {
+    await this.exec('/home', ['config', '--global', '--add', 'safe.directory', repositoryPath]);
+    return;
+  }
 }
 
 export interface CommitShortStat {

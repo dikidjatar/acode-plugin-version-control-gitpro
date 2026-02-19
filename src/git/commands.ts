@@ -7,7 +7,7 @@ import { Branch, CommitOptions, ForcePushMode, GitErrorCodes, Ref, RefType, Remo
 import { item, showDialogMessage } from "./dialog";
 import { UnifiedDiff } from "./diff";
 import { Git, Stash } from "./git";
-import { HintItem, InputHint, showInputHints } from "./hints";
+import { getInputHintResult, HintItem, InputHint, showInputHints } from "./hints";
 import { LogOutputChannel } from "./logger";
 import { Model } from "./model";
 import { Repository, Resource, ResourceGroupType } from "./repository";
@@ -313,6 +313,10 @@ class StashItem implements HintItem {
 function getRepositoryLabel(repositoryRoot: string): string {
   const folder = addedFolder.find(folder => pathEquals(folder.url, repositoryRoot));
   return folder ? folder.title : Url.basename(repositoryRoot)!;
+}
+
+function compareRepositoryLabel(repositoryRoot1: string, repositoryRoot2: string): number {
+  return getRepositoryLabel(repositoryRoot1).localeCompare(getRepositoryLabel(repositoryRoot2));
 }
 
 function sanitizeBranchName(name: string, whitespaceChar: string): string {
@@ -2534,6 +2538,41 @@ export class CommandCenter {
 
     const result = await showInputHints<StashItem | HintItem>(getStashHintItems(), { placeholder });
     return result instanceof StashItem ? result.stash : undefined;
+  }
+
+  @command('Manage Unsafe Repositories')
+  async manageUnsafeRepositories(): Promise<void> {
+    const unsafeRepositories: string[] = [];
+
+    const inputHint = new InputHint<RepositoryItem | HintItem>();
+    inputHint.placeholder = 'Select a repository to mark as safe and open';
+
+    const allRepositoriesLabel = 'All Repositories';
+    const allRepositoriesInputHintItem: HintItem = { label: allRepositoriesLabel };
+    const repositoriesInputHintItems: HintItem[] = this.model.unsafeRepositories
+      .sort(compareRepositoryLabel).map(r => new RepositoryItem(r));
+
+    inputHint.items = this.model.unsafeRepositories.length === 1 ? [...repositoriesInputHintItems] : [...repositoriesInputHintItems, { label: '', type: 'separator' }, allRepositoriesInputHintItem];
+
+    const repositoryItem = await getInputHintResult(inputHint);
+
+    if (!repositoryItem) {
+      return;
+    }
+
+    if (repositoryItem.label === allRepositoriesLabel) {
+      unsafeRepositories.push(...this.model.unsafeRepositories);
+    } else {
+      unsafeRepositories.push((repositoryItem as RepositoryItem).path);
+    }
+
+    for (const unsafeRepository of unsafeRepositories) {
+      // Mark as Safe
+      await this.git.addSafeDirectory(this.model.getUnsafeRepositoryPath(unsafeRepository)!);
+
+      await this.model.openRepository(unsafeRepository);
+      this.model.deleteUnsafeRepository(unsafeRepository);
+    }
   }
 
   private getSCMResource(path?: string): Resource | undefined {

@@ -9,6 +9,7 @@ import { SourceControl, SourceControlResourceGroup } from "../scm/api/sourceCont
 import { ApiRepository } from "./api/api1";
 import { CredentialsProvider, PickRemoteSourceOptions, PublishEvent, PushErrorHandler, RemoteSource, RemoteSourceProvider, RemoteSourcePublisher, APIState as State } from "./api/git";
 import { AskPass } from "./askpass";
+import { item, showDialogMessage } from "./dialog";
 import { Git } from "./git";
 import { getInputHintResult, HintItem, InputHint, showInputHints } from "./hints";
 import { LogOutputChannel } from "./logger";
@@ -79,6 +80,44 @@ class ClosedRepositoriesManager {
   private onDidChangeRepositories(): void {
     App.setContext('git.closedRepositories', [...this._repositories.values()]);
     App.setContext('git.closedRepositoryCount', this._repositories.size);
+  }
+}
+
+class UnsafeRepositoriesManager {
+
+  private _repositories = new Map<string, string>();
+  get repositories(): string[] {
+    return [...this._repositories.keys()];
+  }
+
+  constructor() {
+    this.onDidChangeRepositories();
+  }
+
+  addRepository(repository: string, path: string): void {
+    this._repositories.set(repository, path);
+    this.onDidChangeRepositories();
+  }
+
+  deleteRepository(repository: string): boolean {
+    const result = this._repositories.delete(repository);
+    if (result) {
+      this.onDidChangeRepositories();
+    }
+
+    return result;
+  }
+
+  getRepositoryPath(repository: string): string | undefined {
+    return this._repositories.get(repository);
+  }
+
+  hasRepository(repository: string): boolean {
+    return this._repositories.has(repository);
+  }
+
+  private onDidChangeRepositories(): void {
+    App.setContext('git.unsafeRepositoryCount', this._repositories.size);
   }
 }
 
@@ -242,6 +281,11 @@ export class Model implements IRepositoryResolver, IRemoteSourcePublisherRegistr
 
   private pushErrorHandlers = new Set<PushErrorHandler>();
 
+  private _unsafeRepositoriesManager: UnsafeRepositoriesManager;
+  get unsafeRepositories(): string[] {
+    return this._unsafeRepositoriesManager.repositories;
+  }
+
   private _closedRepositoriesManager: ClosedRepositoriesManager;
   get closedRepositories(): string[] {
     return [...this._closedRepositoriesManager.repositories];
@@ -255,6 +299,7 @@ export class Model implements IRepositoryResolver, IRemoteSourcePublisherRegistr
     readonly logger: LogOutputChannel
   ) {
     this._closedRepositoriesManager = new ClosedRepositoriesManager();
+    this._unsafeRepositoriesManager = new UnsafeRepositoriesManager();
 
     App.onDidChangeWorkspaceFolder(this.onDidChangeWorkspaceFolder, this, this.disposables);
 
@@ -396,6 +441,12 @@ export class Model implements IRepositoryResolver, IRemoteSourcePublisherRegistr
 
       if (unsafeRepositoryMatch && unsafeRepositoryMatch.length === 3) {
         this.logger.info(`[Model][openRepository] Unsafe repository: ${repositoryRoot}`);
+
+        if (this._state === 'initialized' && !this._unsafeRepositoriesManager.hasRepository(repositoryRoot)) {
+          this.showUnsafeRepositoryNotification();
+        }
+
+        this._unsafeRepositoriesManager.addRepository(repositoryRoot, unsafeRepositoryMatch[2]);
         return;
       }
 
@@ -730,6 +781,30 @@ export class Model implements IRepositoryResolver, IRemoteSourcePublisherRegistr
 
   getPushErrorHandlers(): PushErrorHandler[] {
     return [...this.pushErrorHandlers];
+  }
+
+  getUnsafeRepositoryPath(repository: string): string | undefined {
+    return this._unsafeRepositoriesManager.getRepositoryPath(repository);
+  }
+
+  deleteUnsafeRepository(repository: string): boolean {
+    return this._unsafeRepositoriesManager.deleteRepository(repository);
+  }
+
+  private async showUnsafeRepositoryNotification(): Promise<void> {
+    if (this.repositories.length === 0) {
+      return;
+    }
+
+    const message = this.unsafeRepositories.length === 1 ?
+      'The git repository in the current folder is potentially unsafe as the folder is owned by someone other than the current user.' :
+      'The git repositories in the current folder are potentially unsafe as the folders are owned by someone other than the current user.';
+
+    const manageUnsafeRepositories = item('Manage Unsafe Repositories');
+    const choice = await showDialogMessage('ERROR', message, manageUnsafeRepositories);
+    if (choice === manageUnsafeRepositories) {
+      editorManager.editor.execCommand('git.manageUnsafeRepositories');
+    }
   }
 
   dispose(): void {

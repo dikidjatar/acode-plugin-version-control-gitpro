@@ -333,6 +333,7 @@ function initializeViews(scmViewContainer: SourceControlViewContainer): void {
 			&& !App.getContext<boolean>('acode.terminalMissing')
 			&& !App.getContext<boolean>('git.missing')
 			&& App.getContext<number>('addedFolderCount', addedFolder.length) === 0
+			&& App.getContext<number>('git.unsafeRepositoryCount') === 0
 			&& App.getContext<number>('git.closedRepositoryCount') === 0
 	});
 
@@ -359,7 +360,9 @@ function initializeViews(scmViewContainer: SourceControlViewContainer): void {
 			&& !App.getContext<boolean>('git.missing')
 			&& App.getContext<'initialized' | 'uninitialized'>('git.state') === 'initialized'
 			&& App.getContext<number>('addedFolderCount', addedFolder.length) !== 0
-			&& App.getContext<number>('scm.providerCount') === 0 && App.getContext<number>('git.closedRepositoryCount') === 0
+			&& App.getContext<number>('scm.providerCount') === 0
+			&& App.getContext<number>('git.unsafeRepositoryCount') === 0
+			&& App.getContext<number>('git.closedRepositoryCount') === 0
 	});
 
 	scmViewContainer.registerViewWelcomeContent({
@@ -376,6 +379,22 @@ function initializeViews(scmViewContainer: SourceControlViewContainer): void {
 			&& !App.getContext<boolean>('git.missing')
 			&& App.getContext<'initialized' | 'uninitialized'>('git.state') === 'initialized'
 			&& App.getContext<number>('git.closedRepositoryCount', 0) > 1
+	});
+
+	scmViewContainer.registerViewWelcomeContent({
+		content: 'The detected Git repository is potentially unsafe as the folder is owned by someone other than the current user.\n[Manage Unsafe Repositories](command:git.manageUnsafeRepositories)\nTo learn more about unsafe repositories [read our docs](https://aka.ms/vscode-git-unsafe-repository).',
+		when: () => config.get('vcgit')?.enabled === true
+			&& !App.getContext<boolean>('git.missing')
+			&& App.getContext<'initialized' | 'uninitialized'>('git.state') === 'initialized'
+			&& App.getContext<number>('git.unsafeRepositoryCount') === 1
+	});
+
+	scmViewContainer.registerViewWelcomeContent({
+		content: 'The detected Git repositories are potentially unsafe as the folders are owned by someone other than the current user.\n[Manage Unsafe Repositories](command:git.manageUnsafeRepositories)\nTo learn more about unsafe repositories [read our docs](https://aka.ms/vscode-git-unsafe-repository).',
+		when: () => config.get('vcgit')?.enabled === true
+			&& !App.getContext<boolean>('git.missing')
+			&& App.getContext<'initialized' | 'uninitialized'>('git.state') === 'initialized'
+			&& App.getContext<number>('git.unsafeRepositoryCount') > 1
 	});
 }
 
