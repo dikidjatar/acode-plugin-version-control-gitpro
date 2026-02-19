@@ -83,7 +83,6 @@ const defaultGitConfig: IGitConfig = {
 	autofetchPeriod: 180,
 	detectSubmodules: true,
 	detectSubmodulesLimit: 10,
-	useInotifywait: true,
 	decorationsEnabled: true,
 	promptToSaveFilesBeforeStash: 'always',
 	useCommitInputAsStashMessage: false,
@@ -1248,12 +1247,6 @@ function gitPluginSettings(): Acode.PluginSettings {
 				info: 'Controls the limit of Git submodules detected.',
 				prompt: 'Detect Submodules Limit',
 				promptType: 'number'
-			},
-			{
-				key: 'useInotifywait',
-				checkbox: configs.useInotifywait,
-				text: 'Git: Use inotifywait',
-				info: 'Use inotifywait for filesystem watcher'
 			},
 			{
 				key: 'decorationsEnabled',

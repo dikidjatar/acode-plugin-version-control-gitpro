@@ -39,19 +39,6 @@
 
 After installation, generate and configure your SSH keys normally.
 
-### Optional (Recommended)
-
-**inotify_tools** - For real time, auto refresh:
-```bash
-apk add inotify-tools
-```
-
-After installation, enable in plugin settings **"Git: Use inotifywait"**.
-
-> **info**: Without inotify_tools, the plugin still works but you need to manually refresh to see changes.
-
----
-
 ## Features
 
 ### Core Git Operations
@@ -152,7 +139,6 @@ For complete API documentation, see [DOCS.md](DOCS.md).
 |---------|-------------|---------|
 | `enabled` | Enable/disable Git integration | `true` |
 | `useEditorAsCommitInput` | Use Acode editor for commit messages | `true` |
-| `useInotifywait` | Enable file system watching | `true` |
 | `decorationsEnabled` | Show file decorations | `true` |
 | `autorefresh` | Automatically refresh repository status | `true` |
 | `autofetch` | Automatically fetch from remote | `true` |

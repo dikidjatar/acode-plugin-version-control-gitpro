@@ -3,7 +3,7 @@ import { config } from "../base/config";
 import { debounce, memoize, throttle } from "../base/decorators";
 import { Disposable, IDisposable } from "../base/disposable";
 import { Emitter, Event } from "../base/event";
-import { uriToPath } from "../base/uri";
+import { toFileUrl, uriToPath } from "../base/uri";
 import { scm } from "../scm";
 import { SourceControl, SourceControlCommandAction, SourceControlInputBox, SourceControlProgess, SourceControlResourceDecorations, SourceControlResourceGroup, SourceControlResourceState } from "../scm/api/sourceControl";
 import { ActionButton } from "./actionButton";
@@ -12,7 +12,6 @@ import { ApiRepository } from "./api/api1";
 import { Branch, BranchQuery, Change, Commit, CommitOptions, FetchOptions, ForcePushMode, GitErrorCodes, LogOptions, Ref, RefType, Remote, Status } from "./api/git";
 import { AutoFetcher } from "./autofetch";
 import { FileDecoration } from "../base/decorationService";
-import { FileSystemWatcher, RelativePattern } from "./fileSystemWatcher";
 import { Repository as BaseRepository, GitError, LsTreeElement, PullOptions, RefQuery, Stash, Submodule } from "./git";
 import { LogOutputChannel } from "./logger";
 import { Operation, OperationKind, OperationManager, OperationResult } from "./operation";
@@ -20,7 +19,7 @@ import { IPushErrorHandlerRegistry } from "./pushError";
 import { IRemoteSourcePublisherRegistry } from "./remotePublisher";
 import { toGitUri } from "./uri";
 import { find, getCommitShortHash, isDescendant, relativePath, toFullPath, toShortPath } from "./utils";
-import { IFileWatcher, watch } from "./watch";
+import { IFileWatcher, FileWatcher, watch } from "./watch";
 
 const helpers = acode.require('helpers');
 const Url = acode.require('url');
@@ -455,9 +454,7 @@ class DotGitWatcher implements IFileWatcher {
   constructor(private repository: Repository, private logger: LogOutputChannel) {
     const rootWatcher = watch(repository.dotGit.path);
     this.disposables.push(rootWatcher);
-
-    const filteredRootWatcher = Event.filter(rootWatcher.event, path => !/\/\.git(\/index\.lock)?$|\/\.watchman-cookie-/.test(path));
-    this.event = Event.any(filteredRootWatcher, this.emitter.event);
+    this.event = Event.any(rootWatcher.event, this.emitter.event);
 
     repository.onDidRunGitStatus(this.updateTransientWatchers, this, this.disposables);
     this.updateTransientWatchers();
@@ -645,11 +642,10 @@ export class Repository implements IDisposable {
   ) {
     this._operations = new OperationManager(logger);
 
-    const repositoryWatcher = new FileSystemWatcher(new RelativePattern(repository.root, '**'));
+    const repositoryWatcher = new FileWatcher(repository.root);
     this.disposables.push(repositoryWatcher);
 
-    const onRepositoryFileChange = Event.any(repositoryWatcher.onDidChange, repositoryWatcher.onDidCreate, repositoryWatcher.onDidDelete);
-    const onRepositoryWorkingTreeFileChange = Event.filter(onRepositoryFileChange, path => !/\.git($|\\|\/)/.test(relativePath(repository.root, path)));
+    const onRepositoryWorkingTreeFileChange = Event.filter(repositoryWatcher.onDidChange, path => !/\.git($|\\|\/)/.test(relativePath(repository.root, path)));
 
     let onRepositoryDotGitFileChange: Event<string>;
 
@@ -660,7 +656,7 @@ export class Repository implements IDisposable {
     } catch (error: any) {
       logger.error(`Failed to watch path:'${this.dotGit.path}' or commonPath:'${this.dotGit.commonPath}', reverting to legacy API file watched. Some events might be lost.\n${error.stack || error}`);
 
-      onRepositoryDotGitFileChange = Event.filter(onRepositoryFileChange, uri => /\.git($|\\|\/)/.test(uriToPath(uri)));
+      onRepositoryDotGitFileChange = Event.filter(repositoryWatcher.onDidChange, uri => /\.git($|\\|\/)/.test(uriToPath(uri)));
     }
 
     // FS changes should trigger `git status`:

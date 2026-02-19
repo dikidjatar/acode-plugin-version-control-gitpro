@@ -63,7 +63,6 @@ interface IGitConfig {
   readonly autofetchPeriod: number;
   readonly detectSubmodules: boolean;
   readonly detectSubmodulesLimit: number;
-  readonly useInotifywait: boolean;
   readonly decorationsEnabled: boolean;
   readonly promptToSaveFilesBeforeStash: 'always' | 'staged' | 'never';
   readonly useCommitInputAsStashMessage: boolean;
@@ -82,6 +81,12 @@ interface Window {
     packageName: string;
   }
 }
+
+interface SDCard {
+  watchFile(src: string, listener: () => void): { unwatch: () => void };
+}
+
+declare var sdcard: SDCard;
 
 declare module 'diff' {
   interface Change {
