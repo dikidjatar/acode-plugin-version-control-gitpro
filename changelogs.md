@@ -1,5 +1,14 @@
 # ChangeLog
 
+## [2.3.0] - 2026-19-02
+
+- Remove `inotifywait` file watcher and automatic repository refresh on file save for improved performance (Currently, when saving a file and if the file is in the repository, the plugin will automatically update the file. For other changes such as new files, deleted files, changes outside the Acode application or others, you must refresh manually for the changes to take effect)
+- SCM repository now auto-updates when git commands (add, commit, pull, push, etc.) are executed in the terminal
+- Added support for detecting and handling unsafe repository
+- Refined SCM View layout and styling for improved visual consistency
+- Fixed decoration files persist even if the repository is closed
+- Fixed configuration issues during plugin updates
+
 ## [2.2.4] - 2026-18-02
 - Improve file tree decoration
 - Fix loss of decoration when folder is expanded/collapsed
