@@ -1,5 +1,11 @@
 # ChangeLog
 
+## [2.3.1] - 2026-21-02
+- Improve and optimized file tree and file tab decoration
+- Added new setting `Git: Refresh On Save File` which when enabled will automatically update the repository with changes. Default to `false` (You can enable this in Git SCM settings)
+- Added new setting `Git: Show Decorations In File Tree` to control file decoration in the file tree/file explorer
+- Optimized performance and stability
+
 ## [2.3.0] - 2026-19-02
 
 - Remove `inotifywait` file watcher and automatic repository refresh on file save for improved performance (Currently, when saving a file and if the file is in the repository, the plugin will automatically update the file. For other changes such as new files, deleted files, changes outside the Acode application or others, you must refresh manually for the changes to take effect)
