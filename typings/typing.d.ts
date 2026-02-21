@@ -67,6 +67,7 @@ interface IGitConfig {
   readonly promptToSaveFilesBeforeStash: 'always' | 'staged' | 'never';
   readonly useCommitInputAsStashMessage: boolean;
   readonly openDiffOnClick: boolean;
+  readonly showDecorationInFileTree: boolean;
 }
 
 declare namespace Acode {

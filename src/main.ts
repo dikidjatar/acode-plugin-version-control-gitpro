@@ -5,7 +5,7 @@ import { decorationService } from './base/decorationService';
 import { Disposable, IDisposable } from './base/disposable';
 import { Event } from './base/event';
 import { getExecutor } from './base/executor';
-import { FileTreeDecoration } from './base/fileDecoration';
+import { FileTreeDecoration } from './base/fileTreeDecoration';
 import { GitPluginImpl } from './git/api/plugin';
 import { AskPass } from './git/askpass';
 import { CommandCenter } from './git/commands';
@@ -86,7 +86,8 @@ const defaultGitConfig: IGitConfig = {
 	decorationsEnabled: true,
 	promptToSaveFilesBeforeStash: 'always',
 	useCommitInputAsStashMessage: false,
-	openDiffOnClick: true
+	openDiffOnClick: true,
+	showDecorationInFileTree: true
 }
 
 async function destroy() {
@@ -1291,7 +1292,13 @@ function gitPluginSettings(): Acode.PluginSettings {
 				checkbox: configs.openDiffOnClick,
 				text: 'Git: Open Diff On Click',
 				info: 'Controls whether the diff editor should be opened when clicking a change. Otherwise the regular editor will be opened.'
-			}
+			},
+			{
+				key: 'showDecorationInFileTree',
+				checkbox: configs.showDecorationInFileTree,
+				text: 'Git: Show Decorations In File Tree',
+				info: 'Controls whether Git contributes colors and badges to files in the file explorer.'
+			},
 		],
 		cb(key: string, value: unknown) {
 			if (key === 'commandsToLog') {
