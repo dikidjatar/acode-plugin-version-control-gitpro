@@ -87,7 +87,8 @@ const defaultGitConfig: IGitConfig = {
 	promptToSaveFilesBeforeStash: 'always',
 	useCommitInputAsStashMessage: false,
 	openDiffOnClick: true,
-	showDecorationInFileTree: true
+	showDecorationInFileTree: true,
+	refreshOnSaveFile: false
 }
 
 async function destroy() {
@@ -1299,6 +1300,12 @@ function gitPluginSettings(): Acode.PluginSettings {
 				text: 'Git: Show Decorations In File Tree',
 				info: 'Controls whether Git contributes colors and badges to files in the file explorer.'
 			},
+			{
+				key: 'refreshOnSaveFile',
+				checkbox: configs.refreshOnSaveFile,
+				text: 'Git: Refresh On Save File',
+				info: 'Controls whether to refresh view when saving a file that has changes.'
+			}
 		],
 		cb(key: string, value: unknown) {
 			if (key === 'commandsToLog') {

@@ -68,6 +68,7 @@ interface IGitConfig {
   readonly useCommitInputAsStashMessage: boolean;
   readonly openDiffOnClick: boolean;
   readonly showDecorationInFileTree: boolean;
+  readonly refreshOnSaveFile: boolean;
 }
 
 declare namespace Acode {
