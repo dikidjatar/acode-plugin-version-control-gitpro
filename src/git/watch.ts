@@ -31,9 +31,6 @@ export class FileWatcher implements IDisposable {
   constructor(private readonly basePath: string) {
     this.disposable = Event.filter(config.onDidChangeConfiguration, e => e.affectsConfiguration('vcgit.refreshOnSaveFile'))(this.onConfigurationChange, this);
     this.onConfigurationChange();
-    this.onDidChange(() => {
-      console.log('REFRES...');
-    });
   }
 
   private onConfigurationChange(): void {
