@@ -88,7 +88,8 @@ const defaultGitConfig: IGitConfig = {
 	useCommitInputAsStashMessage: false,
 	openDiffOnClick: true,
 	showDecorationInFileTree: true,
-	refreshOnSaveFile: false
+	refreshOnSaveFile: false,
+	optimisticUpdate: true
 }
 
 async function destroy() {
@@ -1305,6 +1306,12 @@ function gitPluginSettings(): Acode.PluginSettings {
 				checkbox: configs.refreshOnSaveFile,
 				text: 'Git: Refresh On Save File',
 				info: 'Controls whether to refresh view when saving a file that has changes.'
+			},
+			{
+				key: 'optimisticUpdate',
+				checkbox: configs.optimisticUpdate,
+				text: 'Git: Optimistic Update (Experimental)',
+				info: 'Controls whether to optimistically update the state of the Source Control view after running git commands.'
 			}
 		],
 		cb(key: string, value: unknown) {

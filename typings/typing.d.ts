@@ -69,6 +69,7 @@ interface IGitConfig {
   readonly openDiffOnClick: boolean;
   readonly showDecorationInFileTree: boolean;
   readonly refreshOnSaveFile: boolean;
+  readonly optimisticUpdate: boolean;
 }
 
 declare namespace Acode {

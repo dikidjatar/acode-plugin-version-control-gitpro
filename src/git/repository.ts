@@ -187,6 +187,10 @@ export class Resource implements SourceControlResourceState {
     const command = this._commandResolver.resolveChangeCommand(this);
     editorManager.editor.execCommand(command.id, command.arguments);
   }
+
+  clone(resourceGroupType?: ResourceGroupType): Resource {
+    return new Resource(this._commandResolver, resourceGroupType ?? this._resourceGroupType, this._resourceUri, this._type, this._renameResourceUri);
+  }
 }
 
 class ResourceCommandResolver {
@@ -780,9 +784,37 @@ export class Repository implements IDisposable {
 
   async add(resources: string[], opts?: { update?: boolean }): Promise<void> {
     await this.run(
-      Operation.Add(true),
+      Operation.Add(!this.optimisticUpdateEnabled()),
       async () => {
         await this.repository.add(resources, opts);
+      },
+      () => {
+        const indexGroupResourcePaths = this.indexGroup.resourceStates.map(r => r.resourceUri);
+
+        // Collect added resources
+        const addedResourceStates: Resource[] = [];
+        for (const resource of [...this.mergeGroup.resourceStates, ...this.untrackedGroup.resourceStates, ...this.workingTreeGroup.resourceStates]) {
+          if (resources.includes(resource.resourceUri) && !indexGroupResourcePaths.includes(resource.resourceUri)) {
+            addedResourceStates.push(resource.clone(ResourceGroupType.Index));
+          }
+        }
+
+        // Add new resource(s) to index group
+        const indexGroup = [...this.indexGroup.resourceStates, ...addedResourceStates];
+
+        // Remove resource(s) from merge group
+        const mergeGroup = this.mergeGroup.resourceStates
+          .filter(r => !resources.includes(r.resourceUri));
+
+        // Remove resource(s) from working group
+        const workingTreeGroup = this.workingTreeGroup.resourceStates
+          .filter(r => !resources.includes(r.resourceUri));
+
+        // Remove resource(s) from untracked group
+        const untrackedGroup = this.untrackedGroup.resourceStates
+          .filter(r => !resources.includes(r.resourceUri));
+
+        return { indexGroup, mergeGroup, workingTreeGroup, untrackedGroup };
       }
     );
   }
@@ -1172,8 +1204,43 @@ export class Repository implements IDisposable {
   }
 
   async revert(resources: string[]): Promise<void> {
-    await this.run(Operation.RevertFiles(true), async () => {
+    await this.run(Operation.RevertFiles(!this.optimisticUpdateEnabled()), async () => {
       await this.repository.revert('HEAD', resources);
+    }, () => {
+      const gitConfig = config.get('vcgit')!;
+      const untrackedChanges = gitConfig.untrackedChanges;
+      const untrackedChangesResourceGroupType = untrackedChanges === 'mixed' ? ResourceGroupType.WorkingTree : ResourceGroupType.Untracked;
+
+      const resourcePaths = resources.length === 0 ?
+        this.indexGroup.resourceStates.map(r => r.resourceUri) : resources;
+
+      // Collect removed resources
+      const trackedResources: Resource[] = [];
+      const untrackedResources: Resource[] = [];
+      for (const resource of this.indexGroup.resourceStates) {
+        if (resourcePaths.includes(resource.resourceUri)) {
+          if (resource.type === Status.INDEX_ADDED) {
+            untrackedResources.push(resource.clone(untrackedChangesResourceGroupType));
+          } else {
+            trackedResources.push(resource.clone(ResourceGroupType.WorkingTree));
+          }
+        }
+      }
+
+      // Remove resource(s) from index group
+      const indexGroup = this.indexGroup.resourceStates
+        .filter(r => !resourcePaths.includes(r.resourceUri));
+
+      // Add resource(s) to working group
+      const workingTreeGroup = untrackedChanges === 'mixed' ?
+        [...this.workingTreeGroup.resourceStates, ...trackedResources, ...untrackedResources] :
+        [...this.workingTreeGroup.resourceStates, ...trackedResources];
+
+      // Add resource(s) to untracked group
+      const untrackedGroup = untrackedChanges === 'separate' ?
+        [...this.untrackedGroup.resourceStates, ...untrackedResources] : undefined;
+
+      return { indexGroup, workingTreeGroup, untrackedGroup };
     });
   }
 
@@ -1222,7 +1289,7 @@ export class Repository implements IDisposable {
 
   async clean(resources: string[]): Promise<void> {
     await this.run(
-      Operation.Clean(true),
+      Operation.Clean(!this.optimisticUpdateEnabled()),
       async () => {
         const toClean: string[] = [];
         const toCheckout: string[] = [];
@@ -1272,6 +1339,17 @@ export class Repository implements IDisposable {
         if (submodulesToUpdate.length > 0) {
           await this.repository.updateSubmodules(submodulesToUpdate);
         }
+      },
+      () => {
+        // Remove resource(s) from working group
+				const workingTreeGroup = this.workingTreeGroup.resourceStates
+					.filter(r => !resources.includes(r.resourceUri));
+
+				// Remove resource(s) from untracked group
+				const untrackedGroup = this.untrackedGroup.resourceStates
+					.filter(r => !resources.includes(r.resourceUri));
+
+				return { workingTreeGroup, untrackedGroup };
       }
     );
   }
@@ -1359,7 +1437,8 @@ export class Repository implements IDisposable {
 
   private async run<T>(
     operation: Operation,
-    runOperation: () => Promise<T> = () => Promise.resolve<any>(null)
+    runOperation: () => Promise<T> = () => Promise.resolve<any>(null),
+    getOptimisticResourceGroups: () => GitResourceGroups | undefined = () => undefined
   ): Promise<T> {
 
     if (this.state !== RepositoryState.Idle) {
@@ -1374,7 +1453,7 @@ export class Repository implements IDisposable {
     try {
       const result = await this.retryRun(operation, runOperation);
       if (!operation.readOnly) {
-        await this.updateModelState();
+        await this.updateModelState(this.optimisticUpdateEnabled() ? getOptimisticResourceGroups() : undefined);
       }
       return result;
     } catch (err: any) {
@@ -1436,7 +1515,11 @@ export class Repository implements IDisposable {
     return folderPaths.filter(p => !ignored.has(p));
   }
 
-  private async updateModelState(): Promise<void> {
+  private async updateModelState(optimisticResourcesGroups?: GitResourceGroups): Promise<void> {
+    if (optimisticResourcesGroups) {
+      this._updateResourceGroupsState(optimisticResourcesGroups);
+    }
+
     const [HEAD, remotes, submodules, rebaseCommit, mergeInProgress] = await Promise.all([
       this.repository.getHEADRef(),
       this.repository.getRemotes(),
@@ -1452,7 +1535,11 @@ export class Repository implements IDisposable {
     this.mergeInProgress = mergeInProgress;
 
     const resourceGroups = await this.getStatus();
+    this._updateResourceGroupsState(resourceGroups);
+    this._onDidChangeStatus.fire();
+  }
 
+  private _updateResourceGroupsState(resourceGroups: GitResourceGroups): void {
     if (resourceGroups.indexGroup) {
       this.indexGroup.resourceStates = resourceGroups.indexGroup;
     }
@@ -1465,8 +1552,6 @@ export class Repository implements IDisposable {
     if (resourceGroups.untrackedGroup) {
       this.untrackedGroup.resourceStates = resourceGroups.untrackedGroup;
     }
-
-    this._onDidChangeStatus.fire();
   }
 
   private async getStatus(): Promise<GitResourceGroups> {
@@ -1699,6 +1784,11 @@ export class Repository implements IDisposable {
     } else {
       this._sourceControl.inputBox.placeholder = 'Message to commit';
     }
+  }
+
+  private optimisticUpdateEnabled(): boolean {
+    const gitConfig = config.get('vcgit');
+    return gitConfig?.optimisticUpdate == true;
   }
 
   private async handleTagConflict(remote: string | undefined, raw: string): Promise<boolean> {
