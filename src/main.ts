@@ -615,6 +615,14 @@ function initializeMenus(logger: LogOutputChannel): void {
 			command: { id: 'git.unstage', title: 'Unstage Changes' },
 			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git' && ctx.scmResourceGroup === 'index',
 			enablement: () => !App.getContext<boolean>('git.operationInProgress')
+		},
+		{
+			command: { id: 'git.ignore', title: 'Add to .gitignore' },
+			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git' && ctx.scmResourceGroup === 'workingTree'
+		},
+		{
+			command: { id: 'git.ignore', title: 'Add to .gitignore' },
+			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git' && ctx.scmResourceGroup === 'untracked'
 		}
 	]);
 
@@ -628,6 +636,11 @@ function initializeMenus(logger: LogOutputChannel): void {
 			command: { id: 'git.unstage', title: 'Unstage Changes' },
 			group: '1_modification',
 			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git' && ctx.scmResourceGroup === 'index'
+		},
+		{
+			command: { id: 'git.ignore', title: 'Add to .gitignore' },
+			group: '1_modification@3',
+			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git' && ctx.scmResourceGroup === 'workingTree'
 		},
 		{
 			command: { id: 'git.stage', title: 'Stage Changes' },
@@ -647,6 +660,11 @@ function initializeMenus(logger: LogOutputChannel): void {
 		{
 			command: { id: 'git.clean', title: 'Discard Changes' },
 			group: '1_modification',
+			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git' && ctx.scmResourceGroup === 'untracked'
+		},
+		{
+			command: { id: 'git.ignore', title: 'Add to .gitignore' },
+			group: '1_modification@3',
 			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git' && ctx.scmResourceGroup === 'untracked'
 		},
 	]);

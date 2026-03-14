@@ -25,6 +25,7 @@ const helpers = acode.require('helpers');
 const Url = acode.require('url');
 const fs = acode.require('fs');
 const confirm = acode.require('confirm');
+const EditorFile = acode.require('editorFile');
 
 const timeout = (millis: number) => new Promise(c => setTimeout(c, millis));
 
@@ -1342,16 +1343,54 @@ export class Repository implements IDisposable {
       },
       () => {
         // Remove resource(s) from working group
-				const workingTreeGroup = this.workingTreeGroup.resourceStates
-					.filter(r => !resources.includes(r.resourceUri));
+        const workingTreeGroup = this.workingTreeGroup.resourceStates
+          .filter(r => !resources.includes(r.resourceUri));
 
-				// Remove resource(s) from untracked group
-				const untrackedGroup = this.untrackedGroup.resourceStates
-					.filter(r => !resources.includes(r.resourceUri));
+        // Remove resource(s) from untracked group
+        const untrackedGroup = this.untrackedGroup.resourceStates
+          .filter(r => !resources.includes(r.resourceUri));
 
-				return { workingTreeGroup, untrackedGroup };
+        return { workingTreeGroup, untrackedGroup };
       }
     );
+  }
+
+  async ignore(files: string[]): Promise<void> {
+    return await this.run(Operation.Ignore, async () => {
+      const ignoreFile = toFileUrl(`${this.repository.root}/.gitignore`);
+      const textToAppend = files
+        .map(uri => relativePath(this.repository.root, uriToPath(uri))
+          .replace(/\\|\[/g, match => match === '\\' ? '/' : `\\${match}`))
+        .join('\n');
+
+      if (localStorage.sidebarShown === '1') {
+        acode.exec('toggle-sidebar');
+      }
+
+      const setText = async (file: Acode.EditorFile) => {
+        const session = file.session;
+        const lines = session.doc.getAllLines();
+        const lastLine = lines[lines.length - 1];
+        const text = lastLine.trim() == '' ? `${textToAppend}\n` : `\n${textToAppend}\n`;
+        session.insert({ row: lines.length, column: 0 }, text);
+        await file.save();
+      }
+
+      const exitingFile = editorManager.getFile(ignoreFile, 'uri');
+      if (exitingFile) {
+        exitingFile.makeActive();
+        await setText(exitingFile);
+        return;
+      }
+
+      const exists = await fs(ignoreFile).exists();
+      const file = new EditorFile('.gitignore', { uri: exists ? ignoreFile : undefined, isUnsaved: !exists });
+      file.makeActive();
+      file.on('loadEnd', async function onload() {
+        await setText(file);
+        file.off('loadEnd', onload);
+      });
+    });
   }
 
   checkIgnore(filepaths: string[]): Promise<Set<string>> {
@@ -1585,7 +1624,7 @@ export class Repository implements IDisposable {
           action: async () => {
             const confirmation = await confirm('', ` Would you like to add "${folderName}" to .gitignore?`);
             if (confirmation) {
-              //TODO: Add to .gitignore
+              this.ignore([folderPath]);
             } else {
               this.didWarnAboutLimit = true;
             }

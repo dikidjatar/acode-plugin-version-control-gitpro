@@ -2351,6 +2351,31 @@ export class CommandCenter {
     }
   }
 
+  @command("Git: Add to .gitignore")
+  async ignore(...resourceStates: SourceControlResourceState[]): Promise<void> {
+    resourceStates = resourceStates.filter(s => !!s);
+
+    if (resourceStates.length === 0) {
+			const resource = this.getSCMResource();
+
+			if (!resource) {
+				return;
+			}
+
+			resourceStates = [resource];
+		}
+
+    const resources = resourceStates
+			.filter(s => s instanceof Resource)
+			.map(r => r.resourceUri);
+
+		if (!resources.length) {
+			return;
+		}
+
+    await this.runByRepository(resources, async (repository, resources) => repository.ignore(resources));
+  }
+
   private async _stash(repository: Repository, includeUntracked = false, staged = false): Promise<boolean> {
     const noUnstagedChanges = repository.workingTreeGroup.resourceStates.length === 0
       && (!includeUntracked || repository.untrackedGroup.resourceStates.length === 0);
