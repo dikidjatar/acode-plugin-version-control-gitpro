@@ -34,7 +34,20 @@ export function isSCMSeparator(element: unknown): element is ISCMActionButton {
 	return (element as ISCMSeparator).type === 'separator';
 }
 
-export function comparePaths(one: string, other: string): number {
+function comparePathComponents(one: string, other: string, caseSensitive = false): number {
+	if (!caseSensitive) {
+		one = one && one.toLowerCase();
+		other = other && other.toLowerCase();
+	}
+
+	if (one === other) {
+		return 0;
+	}
+
+	return one < other ? -1 : 1;
+}
+
+export function comparePaths(one: string, other: string, caseSensitive = false): number {
 	const oneParts = one.split('/');
 	const otherParts = other.split('/');
 
@@ -54,12 +67,10 @@ export function comparePaths(one: string, other: string): number {
 			return 1;
 		}
 
-		if (oneParts[i] === otherParts[i]) {
+		const result = comparePathComponents(oneParts[i], otherParts[i], caseSensitive);
 
-		} else if (oneParts[i] < otherParts[i]) {
-			return -1;
-		} else {
-			return 1;
+		if (result !== 0) {
+			return result;
 		}
 	}
 }

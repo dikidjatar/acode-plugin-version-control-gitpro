@@ -19,8 +19,6 @@ export const defualtScmConfig: ISCMConfig = {
 export interface ISCMResourceDecoration {
   icon?: string;
   strikeThrough?: boolean;
-  letter?: string;
-  color?: string;
 }
 
 export interface ISCMResource {
@@ -268,9 +266,7 @@ export type SCMRawResource = [
   number /* handle */,
   string /* resourceUri */,
   string | undefined /* icon */,
-  boolean /* strike through*/,
-  string /* letter */,
-  string /* color */
+  boolean /* strike through*/
 ];
 
 export type SCMRawResourceSplice = [

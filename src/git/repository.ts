@@ -157,7 +157,7 @@ export class Resource implements SourceControlResourceState {
 
   get decorations(): SourceControlResourceDecorations | undefined {
     const icon = helpers.getIconForFile(Url.basename(this.resourceUri)!);
-    return { icon, color: this.color, letter: this.letter, strikeThrough: this.strikeThrough };
+    return { icon, strikeThrough: this.strikeThrough };
   }
 
   get letter(): string {

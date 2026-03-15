@@ -214,13 +214,11 @@ class SCMProvider implements ISCMProvider {
 
       for (const [start, deleteCount, rawResources] of groupSlices) {
         const resources = rawResources.map(rawResource => {
-          const [handle, sourceUri, icon, strikeThrough, letter, color] = rawResource;
+          const [handle, sourceUri, icon, strikeThrough] = rawResource;
 
           const decorations = {
             icon,
-            strikeThrough,
-            letter,
-            color
+            strikeThrough
           } satisfies ISCMResourceDecoration;
 
           return new SCMResource(

@@ -39,8 +39,6 @@ export interface SourceControlResourceState {
 export interface SourceControlResourceDecorations {
   icon?: string;
   strikeThrough?: boolean;
-  letter?: string;
-  color?: string;
 }
 
 export interface SourceControlActionButton {
