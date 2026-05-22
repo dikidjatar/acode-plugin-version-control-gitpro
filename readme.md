@@ -2,10 +2,9 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-2.3.1-blue.svg)
+![Version](https://img.shields.io/badge/version-2.4.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Acode](https://img.shields.io/badge/Acode-Compatible-orange.svg)
-
 
 **Professional Git integration for Acode Editor**
 
@@ -16,6 +15,7 @@
 **Git SCM v2** is a complete rewrite that communicates directly with the native Git binary installed on your system, providing full Git compatibility. This plugin executes real Git commands through Acode's Executor API, ensuring 100% Git compatibility. Unlike JavaScript-based solutions (isomorphic-git), this plugin communicates directly with your system Git installation for full compatibility and optimal performance.
 
 # Screenshoots
+
 <div align="center" style="display: flex; overflow-x: auto; gap: 10px; padding: 10px;">
   <img src="https://raw.githubusercontent.com/dikidjatar/acode-plugin-version-control-gitpro/refs/heads/main/screenshot/1.jpg" alt="SCM Sidebar View" width="300"/>
   <img src="https://raw.githubusercontent.com/dikidjatar/acode-plugin-version-control-gitpro/refs/heads/main/screenshot/2.jpg" alt="File Tree Decorations" width="300"/>
@@ -27,10 +27,11 @@
 ## Requirements
 
 **Git** must be installed on your system and Acode latest version with Terminal and Executor API support:
-   ```bash
-   apk add git
-   ```
-   
+
+```bash
+apk add git
+```
+
 ### SSH (Required for GitHub / SSH remotes)
 
 > Alpine Linux ships with **Dropbear SSH** by default, which conflicts with OpenSSH and causes Git authentication issues.
@@ -41,6 +42,7 @@ After installation, generate and configure your SSH keys normally.
 ## Features
 
 ### Core Git Operations
+
 - **Repository Management**: Init, Clone, Multi-repository support
 - **Staging & Commits**: Stage/unstage files, commit, amend commits, undo commits
 - **Branches**: Create, delete, rename, merge, rebase branches
@@ -49,10 +51,11 @@ After installation, generate and configure your SSH keys normally.
 - **Tags & Remotes**: Tag and remote management
 
 ### Acode Integration
+
 - **File Decorations**: Visual decoration in SCM panel and file explorer
 - **Editor Integration**: Commit message editor opens in Acode (via IPC)
 - **Credential Management**: Integrated askpass for authentication
-- **Multi-repository**: Work with multiple Git repositories 
+- **Multi-repository**: Work with multiple Git repositories
 - **Status Bar**: Quick sync actions and repository status
 
 ## Installation
@@ -80,23 +83,23 @@ This approach mirrors [VSCode Git extension](https://github.com/microsoft/vscode
 Access the Git API in Acode:
 
 ```javascript
-const gitPlugin = acode.require('git');
+const gitPlugin = acode.require("git");
 const gitAPI = gitPlugin.getAPI(1);
 
 // Get repository
-const repo = gitAPI.getRepository('/path/to/repositoy');
+const repo = gitAPI.getRepository("/path/to/repositoy");
 
 // repository status
 await repo.status();
 
 // Create a branch
-await repo.createBranch('feature-branch', true);
+await repo.createBranch("feature-branch", true);
 
 // Commit
-await repo.commit('Your commit message', { all: true });
+await repo.commit("Your commit message", { all: true });
 
 // Push to remote
-await repo.push('origin', 'main');
+await repo.push("origin", "main");
 ```
 
 ### SCM API
@@ -104,27 +107,28 @@ await repo.push('origin', 'main');
 Access the SCM API:
 
 ```javascript
-const scm = acode.require('scm');
+const scm = acode.require("scm");
 
 // Create a source control provider
-const sourceControl = scm.createSourceControl('my-scm', 'My SCM', '/public');
+const sourceControl = scm.createSourceControl("my-scm", "My SCM", "/public");
 
 // Create resource groups
-const changes = sourceControl.createResourceGroup('changes', 'Changes');
+const changes = sourceControl.createResourceGroup("changes", "Changes");
 
 // Add resources
 changes.resourceStates = [
   {
-    resourceUri: '/path/to/file',
+    resourceUri: "/path/to/file",
     decorations: {
-      letter: 'M',
-      color: '#ffa500'
-    }
-  }
+      letter: "M",
+      color: "#ffa500",
+    },
+  },
 ];
 ```
 
 See type definition files:
+
 - [`git.d.ts`](src/git/api/git.d.ts) - Git API types
 - [`sourceControl.d.ts`](src/scm/api/sourceControl.d.ts) - SCM API types
 
@@ -134,17 +138,17 @@ For complete API documentation, see [DOCS.md](DOCS.md).
 
 ### Settings Overview
 
-| Setting | Description | Default |
-|---------|-------------|---------|
-| `enabled` | Enable/disable Git integration | `true` |
-| `useEditorAsCommitInput` | Use Acode editor for commit messages | `true` |
-| `decorationsEnabled` | Show file decorations | `true` |
-| `autorefresh` | Automatically refresh repository status | `true` |
-| `autofetch` | Automatically fetch from remote | `true` |
-| `autofetchPeriod` | Fetch interval in seconds | `180` |
-| `enableSmartCommit` | Commit all changes when nothing staged | `false` |
-| `confirmSync` | Confirm before sync operation | `true` |
-| `allowForcePush` | Allow force push operations | `false` |
+| Setting                  | Description                             | Default |
+| ------------------------ | --------------------------------------- | ------- |
+| `enabled`                | Enable/disable Git integration          | `true`  |
+| `useEditorAsCommitInput` | Use Acode editor for commit messages    | `true`  |
+| `decorationsEnabled`     | Show file decorations                   | `true`  |
+| `autorefresh`            | Automatically refresh repository status | `true`  |
+| `autofetch`              | Automatically fetch from remote         | `true`  |
+| `autofetchPeriod`        | Fetch interval in seconds               | `180`   |
+| `enableSmartCommit`      | Commit all changes when nothing staged  | `false` |
+| `confirmSync`            | Confirm before sync operation           | `true`  |
+| `allowForcePush`         | Allow force push operations             | `false` |
 
 See all available settings in **Settings → Plugins → Git SCM**.
 
@@ -199,4 +203,4 @@ internal APIs.
 
 ---
 
-*Happy coding ✨*
+_Happy coding ✨_

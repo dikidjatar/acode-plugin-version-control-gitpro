@@ -1,6 +1,14 @@
 # ChangeLog
 
+## [2.4.0] - 2026-23-05
+
+### Add support for CodeMirror:
+
+- Remove `Add to .gitignore` menu
+- Diff is not supported in CodeMirror version
+
 ## [2.3.1] - 2026-21-02
+
 - Improve and optimized file tree and file tab decoration
 - Added new setting `Git: Refresh On Save File` which when enabled will automatically update the repository with changes. Default to `false` (You can enable this in Git SCM settings)
 - Added new setting `Git: Show Decorations In File Tree` to control file decoration in the file tree/file explorer
@@ -16,20 +24,24 @@
 - Fixed configuration issues during plugin updates
 
 ## [2.2.4] - 2026-18-02
+
 - Improve file tree decoration
 - Fix loss of decoration when folder is expanded/collapsed
 - Fixed decoration still shows after commits/discard changes
 - Fixed several bugs related to file decoration
 
 ## [2.2.3] - 2026-09-02
+
 - Refined UI decorations and styling
 - Optimized performance and stability
 
 ## [2.2.2] - 2026-29-01
+
 - Optimized performance and stability
 - Fixed some bugs
 
 ## [2.2.1] - 2026-01-18
+
 - Improved UI
 - Add remote source
 - Fixed some bugs
@@ -37,6 +49,7 @@
 ## [2.2.0] - 2026-01-05
 
 Features Added:
+
 - Git File System support (git:// URI scheme) for accessing files from any Git ref (branches, tags, commits)
 - Diff preview and visualization with file tab decorations
 - Complete Git stash management (save, pop, drop, apply)
@@ -50,10 +63,12 @@ Features Added:
 - Enhanced resource interaction with click-to-open functionality
 
 Bug Fixes:
+
 - Improved URI handling
 - **Error handling for checkout operations**: Better error messages and handling for checkout operations with stash/migrate options
 
 ## [2.1.2] - 2026-01-01
+
 - Added support for monochrome icon options
 - Fixed sync and publish commands
 - Updated Acode terminal files path to use dynamic package name
@@ -71,6 +86,7 @@ Bug Fixes:
 - Added "Open In Integrated" menu in scm menu
 
 ## [2.0.0] - 2025-12-21
+
 ### Rewrite - Native Git Integration
 
 **This is a major breaking release with a complete architecture!**
@@ -85,6 +101,7 @@ Version 2.0.0 represents a fundamental reimplementation of the Git SCM plugin, m
 - **Settings reset**: Previous plugin settings will not carry over
 
 #### Native Git Integration
+
 - **Real Git binary execution**: Direct communication with system Git via Acode Executor API
 - **Full Git compatibility**: 100% compatibility with all Git features and operations
 
@@ -100,6 +117,7 @@ If you're upgrading from v1.x:
 ## [1.3.0] - 2025-10-06
 
 ### Background Server and URI Handling Improvements
+
 - Changes:
   - Added background server
   - Server can now run in background
@@ -111,6 +129,7 @@ If you're upgrading from v1.x:
 ## [1.2.0] - 2025-10-03
 
 ### Improved Server Integration and UI
+
 - Added automatic Git server
   - New start server button for one-click server setup
   - Automated server installation if not present
@@ -122,6 +141,7 @@ If you're upgrading from v1.x:
 ## [1.1.0] - 2025-10-01
 
 ### Enhanced Branch UI and Information
+
 - Improved branch information display with more detailed view
 - Added local and remote branch status indicators
 - Added commit status information (ahead/behind)
