@@ -11,10 +11,10 @@
   },
   "devDependencies": {
     "@acode-app/types": "dikidjatar/acode-app_types",
-    "esbuild": "^0.24.2",
-    "esbuild-sass-plugin": "^3.3.1",
+    "esbuild": "^0.28.0",
+    "esbuild-sass-plugin": "^3.7.0",
     "jszip": "^3.10.1",
-    "typescript": "^5.7.2"
+    "typescript": "^6.0.3"
   },
   "scripts": {
     "dev": "node esbuild.config.mjs --serve",
