@@ -1,11 +1,13 @@
 import * as Diff from 'diff';
+import { App } from '../base/app';
+import { UnsupportedError } from '../base/errors';
 import './diff.scss';
 import { getModeForFile } from './utils';
 
 const EditorFile = acode.require('EditorFile');
 const Url = acode.require('Url');
 const fsOperation = acode.require('fsOperation');
-const Range = ace.require('ace/range').Range;
+const Range = ace.require('ace/range')?.Range;
 
 type DiffEditorFile = Acode.EditorFile & { diff: { additions: number, deletions: number }; };
 
@@ -40,6 +42,12 @@ function isDiffEditorFile(file: unknown): file is DiffEditorFile {
     typeof (<DiffEditorFile>file).diff.deletions === 'number'
 }
 
+function assertNotCodeMirror(): void {
+  if (App.isCodeMirror()) {
+    throw new UnsupportedError('UnifiedDiff is not supported in CodeMirror');
+  }
+}
+
 export class UnifiedDiff {
 
   private readonly oldUri: string;
@@ -53,6 +61,7 @@ export class UnifiedDiff {
   private deletions: number = 0;
 
   constructor(options: DiffOptions) {
+    assertNotCodeMirror();
     this.oldUri = options.oldUri;
     this.newUri = options.newUri;
     this.title = options.title;

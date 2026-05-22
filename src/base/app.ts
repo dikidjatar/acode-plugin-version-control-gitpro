@@ -108,6 +108,11 @@ export class App {
     }
     uiSetting.show(goto);
   }
+
+  public static isCodeMirror(): boolean {
+    return 'isCodeMirror' in editorManager &&
+      editorManager.isCodeMirror === true
+  }
 }
 
 App.initialize();
