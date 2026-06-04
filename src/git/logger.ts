@@ -1,14 +1,6 @@
-const terminal = acode.require('terminal');
+import { Color } from "../base/colors";
 
-const COLORS = {
-  RESET: '\x1b[0m',
-  TIMESTAMP: '\x1b[38;2;106;153;85m', // #6a9955
-  INFO: '\x1b[38;2;78;201;176m',      // #4ec9b0 (cyan)
-  WARN: '\x1b[38;2;206;145;120m',     // #ce9178 (orange)
-  ERROR: '\x1b[38;2;244;71;71m',      // #f44747 (red),
-  DEBUG: '\x1b[35m',                  // Magenta
-  DEFAULT: '\x1b[37m',                // white
-} as const;
+const terminal = acode.require('terminal');
 
 enum LogLevel {
   INFO = 'INFO',
@@ -50,22 +42,22 @@ export class LogOutputChannel {
   private _getLevelColor(level: LogLevel): string {
     switch (level) {
       case LogLevel.INFO:
-        return COLORS.INFO;
+        return Color.cyan;
       case LogLevel.WARN:
-        return COLORS.WARN;
+        return Color.orange;
       case LogLevel.ERROR:
-        return COLORS.ERROR;
+        return Color.red;
       case LogLevel.DEBUG:
-        return COLORS.DEBUG;
+        return Color.magenta;
       default:
-        return COLORS.DEFAULT;
+        return Color.default;
     }
   }
 
   private _formatMessage(message: string, level: LogLevel): string {
     const timestamp = this._getTimestamp();
     const levelColor = this._getLevelColor(level);
-    return `${COLORS.TIMESTAMP}[${timestamp}]${COLORS.RESET} ${levelColor}[${level}]${COLORS.RESET} ${COLORS.DEFAULT}${message}${COLORS.RESET}`;
+    return `${Color.green}[${timestamp}]${Color.reset} ${levelColor}[${level}]${Color.reset} ${Color.default}${message}${Color.reset}`;
   }
 
   private _writeToTerminal(message: string): void {
