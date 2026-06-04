@@ -2356,22 +2356,22 @@ export class CommandCenter {
     resourceStates = resourceStates.filter(s => !!s);
 
     if (resourceStates.length === 0) {
-			const resource = this.getSCMResource();
+      const resource = this.getSCMResource();
 
-			if (!resource) {
-				return;
-			}
+      if (!resource) {
+        return;
+      }
 
-			resourceStates = [resource];
-		}
+      resourceStates = [resource];
+    }
 
     const resources = resourceStates
-			.filter(s => s instanceof Resource)
-			.map(r => r.resourceUri);
+      .filter(s => s instanceof Resource)
+      .map(r => r.resourceUri);
 
-		if (!resources.length) {
-			return;
-		}
+    if (!resources.length) {
+      return;
+    }
 
     await this.runByRepository(resources, async (repository, resources) => repository.ignore(resources));
   }
@@ -2660,8 +2660,11 @@ export class CommandCenter {
   }
 
   @command('Show Output')
-  showOutput(): void {
-    this.logger.show();
+  async showOutput(): Promise<void> {
+    if (localStorage.sidebarShown === '1') {
+      acode.exec('toggle-sidebar');
+    }
+    await this.logger.show();
   }
 
   @command('Clear Git Output')
