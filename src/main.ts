@@ -89,7 +89,9 @@ const defaultGitConfig: IGitConfig = {
 	openDiffOnClick: true,
 	showDecorationInFileTree: true,
 	refreshOnSaveFile: false,
-	optimisticUpdate: true
+	optimisticUpdate: true,
+	detectWorktrees: false,
+	detectWorktreesLimit: 20
 }
 
 async function destroy() {
@@ -1353,6 +1355,20 @@ function gitPluginSettings(): Acode.PluginSettings {
 				checkbox: configs.optimisticUpdate,
 				text: 'Git: Optimistic Update (Experimental)',
 				info: 'Controls whether to optimistically update the state of the Source Control view after running git commands.'
+			},
+			{
+				key: 'detectWorktrees',
+				checkbox: configs.detectWorktrees,
+				text: 'Git: Detect Worktrees',
+				info: 'Controls whether to automatically detect Git worktrees.'
+			},
+			{
+				key: 'detectWorktreesLimit',
+				value: configs.detectWorktreesLimit,
+				text: 'Git: Detect Worktrees Limit',
+				info: 'Controls the limit of Git worktrees detected.',
+				prompt: 'Detect Worktrees Limit',
+				promptType: 'number'
 			}
 		],
 		cb(key: string, value: unknown) {

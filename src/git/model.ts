@@ -505,6 +505,8 @@ export class Model implements IRepositoryResolver, IRemoteSourcePublisherRegistr
     const gitConfig = config.get('vcgit')!;
     const shouldDetectSubmodules = gitConfig.detectSubmodules;
     const submodulesLimit = gitConfig.detectSubmodulesLimit;
+    const shouldDetectWorktrees = gitConfig.detectWorktrees;
+    const worktreesLimit = gitConfig.detectWorktreesLimit;
 
     const checkForSubmodules = () => {
       if (!shouldDetectSubmodules) {
@@ -526,9 +528,30 @@ export class Model implements IRepositoryResolver, IRemoteSourcePublisherRegistr
         });
     }
 
+    const checkForWorktrees = () => {
+      if (!shouldDetectWorktrees) {
+        this.logger.info('[Model][open] Automatic detection of git worktrees is not enabled.');
+        return;
+      }
+
+      if (repository.worktrees.length > worktreesLimit) {
+        acode.alert('WARNING', `The "${Url.basename(repository.root)}" repository has ${repository.worktrees.length} worktrees which won't be opened automatically. You can still open each one individually by opening a file within.`);
+        statusListener.dispose();
+      }
+
+      repository.worktrees
+        .slice(0, worktreesLimit)
+        .forEach(w => {
+          this.logger.info(`[Model][open] Opening worktree: '${w.path}'`);
+          this.eventuallyScanPossibleGitRepository(w.path);
+        });
+    }
+
     const statusListener = repository.onDidRunGitStatus(() => {
       checkForSubmodules();
+      checkForWorktrees();
     });
+    checkForWorktrees();
 
     const updateOperationInProgressContext = () => {
       let operationInProgress = false;
