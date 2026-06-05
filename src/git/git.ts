@@ -323,7 +323,7 @@ export class Git {
       }
     }
 
-    const rawPath = Url.join(`file://${commonDotGitPath ?? dotGitPath}`, 'config');
+    const rawPath = Url.join(`file://${toFullPath(commonDotGitPath ?? dotGitPath)}`, 'config');
     const raw = await fs(rawPath).readFile('utf-8');
     const coreSections = GitConfigParser.parse(raw).find(s => s.name === 'core');
     const isBare = coreSections?.properties['bare'] === 'true';
