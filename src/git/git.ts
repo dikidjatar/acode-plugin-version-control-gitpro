@@ -3,7 +3,7 @@ import { Disposable, IDisposable } from "../base/disposable";
 import { Emitter, Event } from "../base/event";
 import * as process from '../base/executor';
 import { uriToPath } from "../base/uri";
-import { Commit as ApiCommit, RefQuery as ApiRefQuery, Branch, Change, CommitOptions, ForcePushMode, GitErrorCodes, LogOptions, Ref, RefType, Remote, Status } from "./api/git";
+import { Commit as ApiCommit, RefQuery as ApiRefQuery, Worktree as ApiWorktree, Branch, Change, CommitOptions, ForcePushMode, GitErrorCodes, LogOptions, Ref, RefType, Remote, Status } from "./api/git";
 import { LogOutputChannel } from "./logger";
 import { assign, groupBy, isAbsolute, isDescendant, Limiter, Mutable, pathEquals, relativePath, splitInChunks, toFullPath, Versions } from "./utils";
 
@@ -21,6 +21,7 @@ export interface IDotGit {
   readonly path: string;
   readonly commonPath?: string;
   readonly superProjectPath?: string;
+  readonly isBare: boolean;
 }
 
 export interface IFileStatus {
@@ -322,7 +323,13 @@ export class Git {
       }
     }
 
+    const rawPath = Url.join(`file://${commonDotGitPath ?? dotGitPath}`, 'config');
+    const raw = await fs(rawPath).readFile('utf-8');
+    const coreSections = GitConfigParser.parse(raw).find(s => s.name === 'core');
+    const isBare = coreSections?.properties['bare'] === 'true';
+
     return {
+      isBare,
       path: dotGitPath,
       commonPath: commonDotGitPath !== dotGitPath ? commonDotGitPath : undefined,
       superProjectPath: superProjectPath ? superProjectPath : undefined
@@ -854,6 +861,10 @@ export interface PullOptions {
   readonly autoStash?: boolean;
 }
 
+export interface Worktree extends ApiWorktree {
+  readonly commitDetails?: ApiCommit;
+}
+
 export class Repository {
   private _isUsingRefTable = false;
 
@@ -1369,6 +1380,22 @@ export class Repository {
 
   async deleteTag(name: string): Promise<void> {
     const args = ['tag', '-d', name];
+    await this.exec(args);
+  }
+
+  async addWorktree(options: { path: string; commitish: string; branch?: string; noTrack?: boolean }): Promise<void> {
+    const args = ['worktree', 'add'];
+
+    if (options.branch) {
+      args.push('-b', options.branch);
+    }
+
+    if (options.noTrack) {
+      args.push('--no-track');
+    }
+
+    args.push(options.path, options.commitish);
+
     await this.exec(args);
   }
 
@@ -1944,6 +1971,80 @@ export class Repository {
   async getStashes(): Promise<Stash[]> {
     const result = await this.exec(['stash', 'list', `--format=${STASH_FORMAT}`, '-z']);
     return parseGitStashes(result.stdout.trim());
+  }
+
+  async getWorktrees(): Promise<Worktree[]> {
+    return await this.getWorktreesFS();
+  }
+
+  private async getWorktreesFS(): Promise<Worktree[]> {
+    const result: Worktree[] = [];
+    const mainRepositoryPath = this.dotGit.commonPath ?? this.dotGit.path;
+
+    try {
+      if (!this.dotGit.isBare) {
+        // Add main worktree for a non-bare repository
+        const headPath = Url.join(mainRepositoryPath, 'HEAD');
+        const headContent = (await fs(`file://${headPath}`).readFile('utf-8')).trim();
+
+        const mainRepositoryWorktreeName = Url.basename(Url.dirname(mainRepositoryPath))!;
+
+        result.push({
+          name: mainRepositoryWorktreeName,
+          path: toFullPath(Url.dirname(mainRepositoryPath)),
+          ref: headContent.replace(/^ref: /, ''),
+          detached: !headContent.startsWith('ref: '),
+          main: true
+        } satisfies Worktree);
+      }
+
+      // List all worktree folder names
+      const worktreesPath = Url.join(mainRepositoryPath, 'worktrees');
+      const dirents = await fs(`file://${worktreesPath}`).lsDir();
+
+      for (const dirent of dirents) {
+        if (!dirent.isDirectory) {
+          continue;
+        }
+
+        try {
+          const headPath = Url.join(worktreesPath, dirent.name, 'HEAD');
+          const headContent = (await fs(`file://${headPath}`).readFile('utf-8')).trim();
+
+          const gitdirPath = Url.join(worktreesPath, dirent.name, 'gitdir');
+          const gitdirContent = (await fs(`file://${gitdirPath}`).readFile('utf-8')).trim();
+
+          result.push({
+            name: dirent.name,
+            // Remove '/.git' suffix
+            path: toFullPath(gitdirContent.replace(/\/.git.*$/, '')),
+            // Remove 'ref: ' prefix
+            ref: headContent.replace(/^ref: /, ''),
+            // Detached if HEAD does not start with 'ref: '
+            detached: !headContent.startsWith('ref: '),
+            main: false
+          });
+        } catch (err) {
+          if (/ENOENT/.test(err.message) || /Path not found/.test(err.message)) {
+            continue;
+          }
+
+          throw err;
+        }
+      }
+
+      return result;
+    } catch (err) {
+      if (
+        /ENOENT/.test(err.message) ||
+        /ENOTDIR/.test(err.message) ||
+        /Path not found/.test(err.message)
+      ) {
+        return result;
+      }
+
+      throw err;
+    }
   }
 
   async getBranch(name: string): Promise<Branch> {

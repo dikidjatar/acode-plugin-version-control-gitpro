@@ -1,5 +1,6 @@
 import { App } from "../base/app";
 import { config } from "../base/config";
+import { FileDecoration } from "../base/decorationService";
 import { debounce, memoize, throttle } from "../base/decorators";
 import { Disposable, IDisposable } from "../base/disposable";
 import { Emitter, Event } from "../base/event";
@@ -11,15 +12,14 @@ import { CommandActions } from "./actions";
 import { ApiRepository } from "./api/api1";
 import { Branch, BranchQuery, Change, Commit, CommitOptions, FetchOptions, ForcePushMode, GitErrorCodes, LogOptions, Ref, RefType, Remote, Status } from "./api/git";
 import { AutoFetcher } from "./autofetch";
-import { FileDecoration } from "../base/decorationService";
-import { Repository as BaseRepository, GitError, LsTreeElement, PullOptions, RefQuery, Stash, Submodule } from "./git";
+import { Repository as BaseRepository, GitError, LsTreeElement, PullOptions, RefQuery, Stash, Submodule, Worktree } from "./git";
 import { LogOutputChannel } from "./logger";
 import { Operation, OperationKind, OperationManager, OperationResult } from "./operation";
 import { IPushErrorHandlerRegistry } from "./pushError";
 import { IRemoteSourcePublisherRegistry } from "./remotePublisher";
 import { toGitUri } from "./uri";
-import { find, getCommitShortHash, isDescendant, relativePath, toFullPath, toShortPath } from "./utils";
-import { IFileWatcher, FileWatcher, watch } from "./watch";
+import { find, getCommitShortHash, isDescendant, pathEquals, relativePath, toFullPath, toShortPath } from "./utils";
+import { FileWatcher, IFileWatcher, watch } from "./watch";
 
 const helpers = acode.require('helpers');
 const Url = acode.require('url');
@@ -570,6 +570,11 @@ export class Repository implements IDisposable {
     return this._submodules;
   }
 
+  private _worktrees: Worktree[] = [];
+  get worktrees(): Worktree[] {
+    return this._worktrees;
+  }
+
   private _rebaseCommit: Commit | undefined = undefined;
   set rebaseCommit(rebaseCommit: Commit | undefined) {
     if (this._rebaseCommit && !rebaseCommit) {
@@ -908,6 +913,39 @@ export class Repository implements IDisposable {
 
   async deleteTag(name: string): Promise<void> {
     await this.run(Operation.DeleteTag, () => this.repository.deleteTag(name));
+  }
+
+  async createWorktree(options?: { path?: string; commitish?: string; branch?: string; noTrack?: boolean }): Promise<string> {
+    const gitConfig = config.get('vcgit')!;
+    const branchPrefix = gitConfig.branchPrefix;
+
+    return await this.run(Operation.Worktree(false), async () => {
+      let worktreeName: string | undefined;
+      let { path: worktreePath, commitish, branch, noTrack } = options || {};
+
+      // Create worktree path based on the branch name
+      if (worktreePath === undefined && branch !== undefined) {
+        worktreeName = branch.startsWith(branchPrefix)
+          ? branch.substring(branchPrefix.length).replace(/\//g, '-')
+          : branch.replace(/\//g, '-');
+        worktreeName = Url.join(Url.dirname(this.root), `${Url.basename(this.root)}.worktrees`, worktreeName);
+      }
+
+      // Ensure that the worktree path is unique
+      if (this.worktrees.some(worktree => pathEquals(worktree.path, worktreePath!))) {
+        let counter = 0, uniqueWorktreePath: string;
+        do {
+          uniqueWorktreePath = `${worktreePath}-${++counter}`;
+        } while (this.worktrees.some(wt => pathEquals(wt.path, uniqueWorktreePath)));
+
+        worktreePath = uniqueWorktreePath;
+      }
+
+      // Create the worktree
+      await this.repository.addWorktree({ path: worktreePath!, commitish: commitish ?? 'HEAD', branch, noTrack });
+
+      return worktreePath!;
+    });
   }
 
   async checkout(treeish: string, opts?: { detached?: boolean; pullBeforeCheckout?: boolean }): Promise<void> {
@@ -1559,10 +1597,11 @@ export class Repository implements IDisposable {
       this._updateResourceGroupsState(optimisticResourcesGroups);
     }
 
-    const [HEAD, remotes, submodules, rebaseCommit, mergeInProgress] = await Promise.all([
+    const [HEAD, remotes, submodules, worktrees, rebaseCommit, mergeInProgress] = await Promise.all([
       this.repository.getHEADRef(),
       this.repository.getRemotes(),
       this.repository.getSubmodules(),
+      this.repository.getWorktrees(),
       this.getRebaseCommit(),
       this.isMergeInProgress()
     ]);
@@ -1570,6 +1609,7 @@ export class Repository implements IDisposable {
     this._HEAD = HEAD;
     this._remotes = remotes;
     this._submodules = submodules;
+    this._worktrees = worktrees!;
     this.rebaseCommit = rebaseCommit;
     this.mergeInProgress = mergeInProgress;
 

@@ -492,6 +492,12 @@ function initializeMenus(logger: LogOutputChannel): void {
 			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git'
 		},
 		{
+			command: { id: 'git.worktrees', title: 'Worktrees' },
+			group: '2_main@7',
+			submenu: true,
+			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git'
+		},
+		{
 			command: { id: 'git.showOutput', title: 'Show Git Output' },
 			group: '3_footer@1',
 			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git'
@@ -918,6 +924,15 @@ function initializeMenus(logger: LogOutputChannel): void {
 		{
 			command: { id: 'git.deleteRemoteTag', title: 'Delete Remote Tag...' },
 			group: 'tags@3',
+			enablement: () => !App.getContext<boolean>('git.operationInProgress')
+		}
+	]);
+
+	// Worktrees
+	SCMMenuRegistry.registerMenuItems('git.worktrees', [
+		{
+			command: { id: 'git.createWorktree', title: 'Create Worktree...' },
+			group: 'worktrees@1',
 			enablement: () => !App.getContext<boolean>('git.operationInProgress')
 		}
 	]);
