@@ -302,6 +302,7 @@ export class Model implements IRepositoryResolver, IRemoteSourcePublisherRegistr
     this._unsafeRepositoriesManager = new UnsafeRepositoriesManager();
 
     App.onDidChangeWorkspaceFolder(this.onDidChangeWorkspaceFolder, this, this.disposables);
+    config.onDidChangeConfiguration(this.onDidChangeConfiguration, this, this.disposables);
 
     this.setState('uninitialized');
     this.doInitialScan().finally(() => this.setState('initialized'));
@@ -410,6 +411,23 @@ export class Model implements IRepositoryResolver, IRemoteSourcePublisherRegistr
     } catch (error) {
       this.logger.warn(`[Model][onDidChangeWorkspaceFolders] Error: ${error}`);
     }
+  }
+
+  private onDidChangeConfiguration(): void {
+    const gitConfig = config.get('vcgit')!;
+    const enabled = gitConfig.enabled;
+
+    const possibleRepositoryFolders = enabled === true
+      ? addedFolder.filter(folder => !this.getOpenRepository(folder.url))
+      : [];
+
+    const openRepositoriesToDispose = enabled !== true
+      ? this.openRepositories
+      : [];
+
+    this.logger.info(`[Model][onDidChangeConfiguration] Workspace folders: [${possibleRepositoryFolders.map(p => uriToPath(p.url)).join(', ')}]`);
+    possibleRepositoryFolders.forEach(p => this.openRepository(uriToPath(p.url)));
+    openRepositoriesToDispose.forEach(r => r.dispose());
   }
 
   @sequentialize
