@@ -855,6 +855,14 @@ function parseRefs(data: string): (Ref | Branch)[] {
   return refs;
 }
 
+function normalizeGitdir(gitdir: string): string {
+  if (gitdir.startsWith(`/data/data/${window.BuildInfo.packageName}/files/public`)) {
+    return gitdir.replace('/data/data/', '/data/user/0/');
+  }
+
+  return gitdir;
+}
+
 export interface PullOptions {
   readonly unshallow?: boolean;
   readonly tags?: boolean;
@@ -2017,7 +2025,7 @@ export class Repository {
           result.push({
             name: dirent.name,
             // Remove '/.git' suffix
-            path: toFullPath(gitdirContent.replace(/\/.git.*$/, '')),
+            path: normalizeGitdir(toFullPath(gitdirContent.replace(/\/.git.*$/, ''))),
             // Remove 'ref: ' prefix
             ref: headContent.replace(/^ref: /, ''),
             // Detached if HEAD does not start with 'ref: '
