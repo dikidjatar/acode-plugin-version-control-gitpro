@@ -2082,12 +2082,12 @@ export class CommandCenter {
     const choice = await showDialogMessage('WARNING', message, openWorktree);
 
     if (choice === openWorktree) {
-      this.openWorktreeInCurrentWindow(worktreeRepository);
+      this.openWorktree(worktreeRepository);
     }
   }
 
-  @command('Open Worktree')
-  openWorktreeInCurrentWindow(repository: Repository): void {
+  @command('Open Worktree', { repository: true })
+  openWorktree(repository: Repository): void {
     if (!repository) {
       return;
     }
