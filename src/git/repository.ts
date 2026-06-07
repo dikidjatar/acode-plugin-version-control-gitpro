@@ -12,6 +12,7 @@ import { CommandActions } from "./actions";
 import { ApiRepository } from "./api/api1";
 import { Branch, BranchQuery, Change, Commit, CommitOptions, FetchOptions, ForcePushMode, GitErrorCodes, LogOptions, Ref, RefType, Remote, RepositoryKind, Status } from "./api/git";
 import { AutoFetcher } from "./autofetch";
+import { item, showDialogMessage } from "./dialog";
 import { Repository as BaseRepository, GitError, LsTreeElement, PullOptions, RefQuery, Stash, Submodule, Worktree } from "./git";
 import { LogOutputChannel } from "./logger";
 import { Operation, OperationKind, OperationManager, OperationResult } from "./operation";
@@ -894,6 +895,40 @@ export class Repository implements IDisposable {
     return await this.run(Operation.GetRefs, () => this.repository.getRefs(query));
   }
 
+  async getWorktrees(): Promise<Worktree[]> {
+    return await this.run(Operation.Worktree(true), () => this.repository.getWorktrees());
+  }
+
+  async getWorktreeDetails(): Promise<Worktree[]> {
+    return this.run(Operation.Worktree(true), async () => {
+      const worktrees = await this.repository.getWorktrees();
+      if (worktrees.length === 0) {
+        return [];
+      }
+
+      // Get refs for worktrees that point to a ref
+      const worktreeRefs = worktrees
+        .filter(worktree => !worktree.detached)
+        .map(worktree => worktree.ref);
+
+      // Get the commit details for worktrees that point to a ref
+      const refs = await this.getRefs({ pattern: worktreeRefs, includeCommitDetails: true });
+
+      // Get the commit details for detached worktrees
+      const commits = await Promise.all(worktrees
+        .filter(worktree => worktree.detached)
+        .map(worktree => this.repository.getCommit(worktree.ref)));
+
+      return worktrees.map(worktree => {
+        const commitDetails = worktree.detached
+          ? commits.find(commit => commit.hash === worktree.ref)
+          : refs.find(ref => `refs/heads/${ref.name}` === worktree.ref)?.commitDetails;
+
+        return { ...worktree, commitDetails } satisfies Worktree;
+      });
+    });
+  }
+
   async getRemoteRefs(remote: string, opts?: { heads?: boolean; tags?: boolean }): Promise<Ref[]> {
     return await this.run(Operation.GetRemoteRefs, () => this.repository.getRemoteRefs(remote, opts));
   }
@@ -956,6 +991,33 @@ export class Repository implements IDisposable {
       await this.repository.addWorktree({ path: worktreePath!, commitish: commitish ?? 'HEAD', branch, noTrack });
 
       return worktreePath!;
+    });
+  }
+
+  async deleteWorktree(path: string, options?: { force?: boolean }): Promise<void> {
+    await this.run(Operation.Worktree(false), async () => {
+      const worktree = this.repositoryResolver.getRepository(path);
+
+      const deleteWorktree = async (options?: { force?: boolean }): Promise<void> => {
+        await this.repository.deleteWorktree(path, options);
+        worktree?.dispose();
+      };
+
+      try {
+        await deleteWorktree();
+      } catch (err) {
+        if (err.gitErrorCode === GitErrorCodes.WorktreeContainsChanges) {
+          const forceDelete = item('Force Delete');
+          const message = 'The worktree contains modified or untracked files. Do you want to force delete?';
+          const choice = await showDialogMessage('WARNING', message, forceDelete);
+          if (choice === forceDelete) {
+            await deleteWorktree({ ...options, force: true });
+          }
+          return;
+        }
+
+        throw err;
+      }
     });
   }
 

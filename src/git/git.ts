@@ -1416,6 +1416,17 @@ export class Repository {
     await this.exec(args);
   }
 
+  async deleteWorktree(path: string, options?: { force?: boolean }): Promise<void> {
+		const args = ['worktree', 'remove'];
+
+		if (options?.force) {
+			args.push('--force');
+		}
+
+		args.push(path);
+		await this.exec(args);
+	}
+
   async reset(treeish: string, hard: boolean = false): Promise<void> {
     const args = ['reset', hard ? '--hard' : '--soft', treeish];
     await this.exec(args);

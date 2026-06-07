@@ -6,13 +6,13 @@ import { ApiRepository } from "./api/api1";
 import { Branch, CommitOptions, ForcePushMode, GitErrorCodes, Ref, RefType, Remote, RemoteSourcePublisher, Status } from "./api/git";
 import { item, showDialogMessage } from "./dialog";
 import { UnifiedDiff } from "./diff";
-import { Git, GitError, Stash } from "./git";
+import { Git, GitError, Stash, Worktree } from "./git";
 import { getInputHintResult, HintItem, InputHint, showInputHints } from "./hints";
 import { LogOutputChannel } from "./logger";
 import { Model } from "./model";
 import { Repository, Resource, ResourceGroupType } from "./repository";
 import { toGitUri } from "./uri";
-import { fromNow, getModeForFile, grep, isDescendant, pathEquals } from "./utils";
+import { coalesce, fromNow, getModeForFile, grep, isDescendant, pathEquals, toFullPath } from "./utils";
 
 const fileBrowser = acode.require('fileBrowser');
 const Url = acode.require('Url');
@@ -231,6 +231,46 @@ class RemoteTagDeleteItem extends RefItem {
     if (this.ref.name) {
       await repository.deleteRemoteRef(remote, this.ref.name);
     }
+  }
+}
+
+class WorktreeItem implements HintItem {
+  get label(): string { return this.worktree.name; }
+
+  get icon(): string { return 'vscode-codicons_list_tree'; }
+
+  get description(): string | undefined { return this.worktree.path; }
+
+  constructor(readonly worktree: Worktree) { }
+}
+
+class WorktreeDeleteItem extends WorktreeItem {
+  override get description(): string | undefined {
+    if (!this.worktree.commitDetails) {
+      return undefined;
+    }
+
+    return coalesce([
+      this.worktree.detached ? 'detached' : this.worktree.ref.substring(11),
+      this.worktree.commitDetails.hash.substring(0, this.shortCommitLength),
+      this.worktree.commitDetails.message.split('\n')[0]
+    ]).join(' \u2022 ');
+  }
+
+  get detail(): string {
+    return this.worktree.path;
+  }
+
+  constructor(worktree: Worktree, private readonly shortCommitLength: number) {
+    super(worktree);
+  }
+
+  async run(mainRepository: Repository): Promise<void> {
+    if (!this.worktree.path) {
+      return;
+    }
+
+    await mainRepository.deleteWorktree(this.worktree.path);
   }
 }
 
@@ -2084,6 +2124,41 @@ export class CommandCenter {
     if (choice === openWorktree) {
       this.openWorktree(worktreeRepository);
     }
+  }
+
+  @command('Delete Worktree...', { repository: true })
+  async deleteWorktree(repository: Repository): Promise<void> {
+    const gitConfig = config.get('vcgit')!;
+    const commitShortHashLength = gitConfig.commitShortHashLength;
+
+    const worktreeHints = async (): Promise<WorktreeDeleteItem[] | HintItem[]> => {
+      const worktrees = await repository.getWorktreeDetails();
+      return worktrees.length === 0
+        ? [{ label: 'ⓘ This repository has no worktrees.' }]
+        : worktrees.map(worktree => new WorktreeDeleteItem(worktree, commitShortHashLength));
+    }
+
+    const placeholder = 'Select a worktree to delete';
+    const choice = await showInputHints<WorktreeDeleteItem | HintItem>(worktreeHints(), { placeholder });
+
+    if (choice instanceof WorktreeDeleteItem) {
+      await choice.run(repository);
+    }
+  }
+
+  @command('Delete Worktree', { repository: true })
+  async deleteWorktree2(repository: Repository): Promise<void> {
+    if (!repository.dotGit.commonPath) {
+      return;
+    }
+
+    const mainRepository = this.model.getRepository(Url.dirname(toFullPath(repository.dotGit.commonPath)));
+    if (!mainRepository) {
+      acode.alert('ERROR', 'You cannot delete the worktree you are currently in. Please switch to the main repository first.');
+      return;
+    }
+
+    await mainRepository.deleteWorktree(repository.root);
   }
 
   @command('Open Worktree', { repository: true })

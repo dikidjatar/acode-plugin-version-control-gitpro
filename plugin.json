@@ -20,7 +20,8 @@
     "assets/loading.svg",
     "assets/git-commit.svg",
     "assets/vscode-codicons_archive.svg",
-    "assets/vscode-codicons_worktree.svg"
+    "assets/vscode-codicons_worktree.svg",
+    "assets/vscode-codicons_list_tree.svg"
   ],
   "minVersionCode": 290,
   "license": "MIT",

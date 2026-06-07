@@ -20,6 +20,10 @@ export function assign<T>(destination: T, ...sources: any[]): T {
 	return destination;
 }
 
+export function coalesce<T>(array: ReadonlyArray<T | undefined>): T[] {
+	return array.filter((e): e is T => !!e);
+}
+
 export namespace Versions {
 	declare type VersionComparisonResult = -1 | 0 | 1;
 
