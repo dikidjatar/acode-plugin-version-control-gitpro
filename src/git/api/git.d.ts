@@ -116,6 +116,8 @@ export interface Change {
 	readonly status: Status;
 }
 
+export type RepositoryKind = 'repository' | 'submodule' | 'worktree';
+
 export interface RepositoryState {
 	readonly HEAD: Branch | undefined;
 	readonly remotes: Remote[];

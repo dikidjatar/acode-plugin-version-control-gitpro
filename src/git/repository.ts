@@ -10,7 +10,7 @@ import { SourceControl, SourceControlCommandAction, SourceControlInputBox, Sourc
 import { ActionButton } from "./actionButton";
 import { CommandActions } from "./actions";
 import { ApiRepository } from "./api/api1";
-import { Branch, BranchQuery, Change, Commit, CommitOptions, FetchOptions, ForcePushMode, GitErrorCodes, LogOptions, Ref, RefType, Remote, Status } from "./api/git";
+import { Branch, BranchQuery, Change, Commit, CommitOptions, FetchOptions, ForcePushMode, GitErrorCodes, LogOptions, Ref, RefType, Remote, RepositoryKind, Status } from "./api/git";
 import { AutoFetcher } from "./autofetch";
 import { Repository as BaseRepository, GitError, LsTreeElement, PullOptions, RefQuery, Stash, Submodule, Worktree } from "./git";
 import { LogOutputChannel } from "./logger";
@@ -637,6 +637,10 @@ export class Repository implements IDisposable {
     return this.repository.dotGit;
   }
 
+  get kind(): RepositoryKind {
+    return this.repository.kind;
+  }
+
   private isRepositoryHuge: false | { limit: number } = false;
   private didWarnAboutLimit = false;
 
@@ -680,7 +684,13 @@ export class Repository implements IDisposable {
 
     this.disposables.push(new FileEventLogger(onRepositoryWorkingTreeFileChange, onRepositoryDotGitFileChange, logger));
 
-    this._sourceControl = scm.createSourceControl('git', 'Git', this.repository.root, undefined);
+    const icon = repository.kind === 'submodule'
+      ? 'vscode-codicons_archive'
+      : repository.kind === 'worktree'
+        ? 'vscode-codicons_worktree'
+        : 'repo'
+
+    this._sourceControl = scm.createSourceControl('git', 'Git', this.repository.root, icon);
     this.disposables.push(this._sourceControl);
 
     this.updateInputBoxPlaceholder();

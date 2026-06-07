@@ -883,7 +883,16 @@ export class Repository {
     readonly dotGit: IDotGit,
     private logger: LogOutputChannel
   ) {
+    this._kind = this.dotGit.commonPath
+      ? 'worktree'
+      : this.dotGit.superProjectPath
+        ? 'submodule'
+        : 'repository';
+  }
 
+  private readonly _kind: 'repository' | 'submodule' | 'worktree';
+  get kind(): 'repository' | 'submodule' | 'worktree' {
+    return this._kind;
   }
 
   get git(): Git {

@@ -242,6 +242,8 @@ async function initialize(baseUrl: string, options: Acode.PluginInitOptions): Pr
 	acode.addIcon('tag', baseUrl + 'assets/tag.svg', { monochrome: true });
 	acode.addIcon('loading', baseUrl + 'assets/loading.svg', { monochrome: true });
 	acode.addIcon('git-commit', baseUrl + 'assets/git-commit.svg', { monochrome: true });
+	acode.addIcon('vscode-codicons_archive', baseUrl + 'assets/vscode-codicons_archive.svg', { monochrome: true });
+	acode.addIcon('vscode-codicons_worktree', baseUrl + 'assets/vscode-codicons_worktree.svg', { monochrome: true });
 	const styles = tag('link', { rel: 'stylesheet', href: baseUrl + 'main.css' });
 	document.head.appendChild(styles);
 	disposables.push(Disposable.toDisposable(() => styles.remove()));
