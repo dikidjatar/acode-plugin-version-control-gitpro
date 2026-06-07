@@ -235,13 +235,13 @@ async function initialize(baseUrl: string, options: Acode.PluginInitOptions): Pr
 	await config.init('vcgit', defaultGitConfig);
 	disposables.push(config);
 
-	acode.addIcon('branch', baseUrl + 'assets/branch.svg', { monochrome: true });
-	acode.addIcon('sync', baseUrl + 'assets/sync.svg', { monochrome: true });
-	acode.addIcon('cloud-upload', baseUrl + 'assets/cloud-upload.svg', { monochrome: true });
-	acode.addIcon('debug-disconnect', baseUrl + 'assets/debug-disconnect.svg', { monochrome: true });
-	acode.addIcon('tag', baseUrl + 'assets/tag.svg', { monochrome: true });
-	acode.addIcon('loading', baseUrl + 'assets/loading.svg', { monochrome: true });
-	acode.addIcon('git-commit', baseUrl + 'assets/git-commit.svg', { monochrome: true });
+	acode.addIcon('vscode-codicons_git_branch', baseUrl + 'assets/vscode-codicons_git_branch.svg', { monochrome: true });
+	acode.addIcon('vscode-codicons_cloud_upload', baseUrl + 'assets/vscode-codicons_cloud_upload.svg', { monochrome: true });
+	acode.addIcon('vscode-codicons_sync', baseUrl + 'assets/vscode-codicons_sync.svg', { monochrome: true });
+	acode.addIcon('vscode-codicons_tag', baseUrl + 'assets/vscode-codicons_tag.svg', { monochrome: true });
+	acode.addIcon('vscode-codicons_loading', baseUrl + 'assets/vscode-codicons_loading.svg', { monochrome: true });
+	acode.addIcon('vscode-codicons_debug_disconnect', baseUrl + 'assets/vscode-codicons_debug_disconnect.svg', { monochrome: true });
+	acode.addIcon('vscode-codicons_git_commit', baseUrl + 'assets/vscode-codicons_git_commit.svg', { monochrome: true });
 	acode.addIcon('vscode-codicons_archive', baseUrl + 'assets/vscode-codicons_archive.svg', { monochrome: true });
 	acode.addIcon('vscode-codicons_worktree', baseUrl + 'assets/vscode-codicons_worktree.svg', { monochrome: true });
 	acode.addIcon('vscode-codicons_list_tree', baseUrl + 'assets/vscode-codicons_list_tree.svg', { monochrome: true });

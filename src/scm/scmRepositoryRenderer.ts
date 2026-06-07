@@ -177,7 +177,7 @@ export class RepositoryRenderer implements IListRenderer<ISCMRepository, Reposit
   renderElement(repository: ISCMRepository, index: number, templateData: RepositoryTemplate): void {
     templateData.icon.className = repository.provider.icon
       ? `icon ${repository.provider.icon}`
-      : 'icon repo';
+      : 'icon vscode-codicons_repo';
     templateData.label.textContent = repository.provider.name;
     templateData.action.setRepository(repository);
   }

@@ -689,7 +689,7 @@ export class Repository implements IDisposable {
       ? 'vscode-codicons_archive'
       : repository.kind === 'worktree'
         ? 'vscode-codicons_worktree'
-        : 'repo'
+        : 'vscode-codicons_repo'
 
     this._sourceControl = scm.createSourceControl('git', 'Git', this.repository.root, icon);
     this._sourceControl.contextValue = repository.kind;

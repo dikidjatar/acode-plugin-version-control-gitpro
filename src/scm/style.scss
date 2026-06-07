@@ -369,7 +369,9 @@
   }
 
   .icon.loading,
-  .icon.sync {
+  .icon.sync,
+  .icon.vscode-codicons_sync,
+  .icon.vscode-codicons_loading {
     &.spin {
       animation: spin 1s linear infinite;
     }

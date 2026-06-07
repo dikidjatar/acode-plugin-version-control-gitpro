@@ -33,7 +33,7 @@ class RepositoryHint implements HintItem {
       .join(' ');
   }
 
-  @memoize get icon(): string { return 'repo'; }
+  @memoize get icon(): string { return 'vscode-codicons_repo'; }
 
   constructor(public readonly repository: Repository) { }
 }

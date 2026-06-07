@@ -703,8 +703,8 @@ export namespace scm {
     const appSettings = acode.require('settings');
     appSettings.uiSettings['scm-settings'] = scmSettings();
 
-    acode.addIcon('scm', baseUrl + 'assets/scm.svg', { monochrome: true });
-    acode.addIcon('repo', baseUrl + 'assets/repo.svg', { monochrome: true });
+    acode.addIcon('scm', baseUrl + 'assets/vscode-codicons_source_control.svg', { monochrome: true });
+    acode.addIcon('vscode-codicons_repo', baseUrl + 'assets/vscode-codicons_repo.svg', { monochrome: true })
 
     const scmService = new SCMService();
     const scmViewService = new SCMViewService(scmService);
