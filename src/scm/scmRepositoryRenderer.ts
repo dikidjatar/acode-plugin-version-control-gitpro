@@ -81,7 +81,7 @@ class RepositoryAction implements IDisposable {
         this.actionContainer.appendChild(actionItem);
 
         actionItem.classList.toggle('disabled', !action.enabled);
-        
+
         Event.fromDOMEvent(actionItem, 'click')(e => {
           e.stopPropagation();
           this.scmCommandService.executeCommand(action.id, this.repository!.provider);
@@ -116,12 +116,13 @@ class RepositoryAction implements IDisposable {
 
   private getActions(submenu?: string): ISCMMenuItemAction[] {
     const menus = this.scmViewService.menus.getRepositoryMenus(this.repository!.provider);
+    const repositoryMenu = menus.getRepositoryMenu(this.repository!);
+
     if (submenu) {
-      const menu = menus.getSubmenu(submenu);
+      const menu = menus.getSubmenu(repositoryMenu, submenu);
       return menu.getSecondaryActions();
     } else {
-      const menu = menus.getRepositoryMenu(this.repository!);
-      return menu.getSecondaryActions();
+      return repositoryMenu.getSecondaryActions();
     }
   }
 

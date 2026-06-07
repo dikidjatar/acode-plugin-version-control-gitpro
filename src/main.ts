@@ -935,9 +935,22 @@ function initializeMenus(logger: LogOutputChannel): void {
 	// Worktrees
 	SCMMenuRegistry.registerMenuItems('git.worktrees', [
 		{
+			command: { id: 'git.openWorktree', title: 'Open Worktree' },
+			group: 'openWorktrees@1',
+			enablement: () => !App.getContext<boolean>('git.operationInProgress'),
+			when: (ctx: SCMMenuContext) => ctx.scmProviderContext === 'worktree'
+		},
+		{
 			command: { id: 'git.createWorktree', title: 'Create Worktree...' },
 			group: 'worktrees@1',
-			enablement: () => !App.getContext<boolean>('git.operationInProgress')
+			enablement: () => !App.getContext<boolean>('git.operationInProgress'),
+			when: (ctx: SCMMenuContext) => ctx.scmProviderContext === 'repository'
+		},
+		{
+			command: { id: 'git.deleteWorktree2', title: 'Delete Worktree' },
+			group: 'worktrees@2',
+			enablement: () => !App.getContext<boolean>('git.operationInProgress'),
+			when: (ctx: SCMMenuContext) => ctx.scmProviderContext === 'worktree'
 		}
 	]);
 }

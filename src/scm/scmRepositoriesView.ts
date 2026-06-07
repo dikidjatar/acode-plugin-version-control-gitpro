@@ -108,7 +108,7 @@ export class ScmRepositoriesView extends Disposable.Disposable implements IView 
           if (!submenu) {
             return menu.getSecondaryActions();
           } else {
-            return menus.getSubmenu(submenu).getSecondaryActions();
+            return menus.getSubmenu(menu, submenu).getSecondaryActions();
           }
         },
         onSelect: (id: string) => {

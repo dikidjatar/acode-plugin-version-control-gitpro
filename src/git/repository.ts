@@ -691,6 +691,7 @@ export class Repository implements IDisposable {
         : 'repo'
 
     this._sourceControl = scm.createSourceControl('git', 'Git', this.repository.root, icon);
+    this._sourceControl.contextValue = repository.kind;
     this.disposables.push(this._sourceControl);
 
     this.updateInputBoxPlaceholder();

@@ -40,13 +40,20 @@ class SCMResourceGroup implements ISCMResourceGroup {
     this._onDidChange.fire();
   }
 
+  get contextValue(): string | undefined { return this._contextValue; }
+  set contextValue(contextValue: string | undefined) {
+    this._contextValue = contextValue;
+    this._onDidChange.fire();
+  }
+
   constructor(
     private readonly sourceControlHandle: number,
     private readonly handle: number,
     public provider: ISCMProvider,
     public id: string,
     private _label: string,
-    private _hideWhenEmpty?: boolean
+    private _hideWhenEmpty?: boolean,
+    private _contextValue?: string
   ) {
   }
 
@@ -74,7 +81,8 @@ class SCMResource implements ISCMResource {
     private readonly handle: number,
     readonly sourceUri: string,
     readonly resourceGroup: ISCMResourceGroup,
-    readonly decorations: ISCMResourceDecoration
+    readonly decorations: ISCMResourceDecoration,
+    readonly contextValue: string | undefined,
   ) {
 
   }
@@ -114,6 +122,11 @@ class SCMProvider implements ISCMProvider {
   get label(): string { return this._label; }
   get rootUri(): string | undefined { return this._rootUri; }
   get icon(): string | undefined { return this._icon; }
+
+  private _contextValue: string | undefined = undefined;
+  get contextValue(): string | undefined {
+    return this._contextValue;
+  }
 
   private readonly _name: string | undefined;
   get name(): string { return this._name ?? this.label }
@@ -165,14 +178,19 @@ class SCMProvider implements ISCMProvider {
       this._actionButton = features.actionButton;
     }
 
+    if (typeof features.contextValue !== 'undefined') {
+      changed = true;
+      this._contextValue = features.contextValue;
+    }
+
     if (changed) {
       this._onDidChange.fire();
     }
   }
 
-  registerGroups(_groups: [number /* handle */, string /* id */, string /* label */, boolean | undefined /* hideWhenEmpty */][]) {
+  registerGroups(_groups: [number /* handle */, string /* id */, string /* label */, boolean | undefined /* hideWhenEmpty */, string | undefined /* contextValue */][]) {
     const groups = _groups.map(([handle, id, label, hideWhenEmpty]) => {
-      const group = new SCMResourceGroup(this.handle, handle, this, id, label, hideWhenEmpty);
+      const group = new SCMResourceGroup(this.handle, handle, this, id, label, hideWhenEmpty, this.contextValue);
       this._groupsByHandle[handle] = group;
       return group;
     });
@@ -181,7 +199,7 @@ class SCMProvider implements ISCMProvider {
     this._onDidChangeResourceGroups.fire();
   }
 
-  updateGroup(handle: number, features: { hideWhenEmpty?: boolean }): void {
+  updateGroup(handle: number, features: { hideWhenEmpty?: boolean, contextValue?: string }): void {
     const group = this._groupsByHandle[handle];
 
     if (!group) {
@@ -189,6 +207,7 @@ class SCMProvider implements ISCMProvider {
     }
 
     group.hideWhenEmpty = !!features.hideWhenEmpty;
+    group.contextValue = this.contextValue;
   }
 
   updateGroupLabel(handle: number, label: string): void {
@@ -214,7 +233,7 @@ class SCMProvider implements ISCMProvider {
 
       for (const [start, deleteCount, rawResources] of groupSlices) {
         const resources = rawResources.map(rawResource => {
-          const [handle, sourceUri, icon, strikeThrough] = rawResource;
+          const [handle, sourceUri, icon, strikeThrough, contextValue] = rawResource;
 
           const decorations = {
             icon,
@@ -228,7 +247,8 @@ class SCMProvider implements ISCMProvider {
             handle,
             sourceUri,
             group,
-            decorations
+            decorations,
+            contextValue
           );
         });
 
@@ -294,7 +314,7 @@ export class SCM {
     }
   }
 
-  registerGroups(sourceControlHandle: number, groups: [number /* handle */, string /* id */, string /* label */, boolean | undefined /* hideWhenEmpty */][], splices: SCMRawResourceSplices[]): void {
+  registerGroups(sourceControlHandle: number, groups: [number /* handle */, string /* id */, string /* label */, boolean | undefined /* hideWhenEmpty */, string | undefined /* contextValue */][], splices: SCMRawResourceSplices[]): void {
     const repository = this._repositories.get(sourceControlHandle);
 
     if (!repository) {
@@ -306,7 +326,7 @@ export class SCM {
     provider.spliceGroupResourceStates(splices);
   }
 
-  updateGroup(sourceControlHandle: number, groupHandle: number, features: { hideWhenEmpty?: boolean }): void {
+  updateGroup(sourceControlHandle: number, groupHandle: number, features: { hideWhenEmpty?: boolean, contextValue?: string }): void {
     const repository = this._repositories.get(sourceControlHandle);
 
     if (!repository) {
