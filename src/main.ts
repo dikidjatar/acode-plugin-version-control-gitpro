@@ -89,7 +89,9 @@ const defaultGitConfig: IGitConfig = {
 	openDiffOnClick: true,
 	showDecorationInFileTree: true,
 	refreshOnSaveFile: false,
-	optimisticUpdate: true
+	optimisticUpdate: true,
+	detectWorktrees: false,
+	detectWorktreesLimit: 20
 }
 
 async function destroy() {
@@ -240,6 +242,10 @@ async function initialize(baseUrl: string, options: Acode.PluginInitOptions): Pr
 	acode.addIcon('tag', baseUrl + 'assets/tag.svg', { monochrome: true });
 	acode.addIcon('loading', baseUrl + 'assets/loading.svg', { monochrome: true });
 	acode.addIcon('git-commit', baseUrl + 'assets/git-commit.svg', { monochrome: true });
+	acode.addIcon('vscode-codicons_archive', baseUrl + 'assets/vscode-codicons_archive.svg', { monochrome: true });
+	acode.addIcon('vscode-codicons_worktree', baseUrl + 'assets/vscode-codicons_worktree.svg', { monochrome: true });
+	acode.addIcon('vscode-codicons_list_tree', baseUrl + 'assets/vscode-codicons_list_tree.svg', { monochrome: true });
+
 	const styles = tag('link', { rel: 'stylesheet', href: baseUrl + 'main.css' });
 	document.head.appendChild(styles);
 	disposables.push(Disposable.toDisposable(() => styles.remove()));
@@ -488,6 +494,12 @@ function initializeMenus(logger: LogOutputChannel): void {
 		{
 			command: { id: 'git.tags', title: 'Tags' },
 			group: '2_main@6',
+			submenu: true,
+			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git'
+		},
+		{
+			command: { id: 'git.worktrees', title: 'Worktrees' },
+			group: '2_main@7',
 			submenu: true,
 			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git'
 		},
@@ -921,6 +933,28 @@ function initializeMenus(logger: LogOutputChannel): void {
 			enablement: () => !App.getContext<boolean>('git.operationInProgress')
 		}
 	]);
+
+	// Worktrees
+	SCMMenuRegistry.registerMenuItems('git.worktrees', [
+		{
+			command: { id: 'git.openWorktree', title: 'Open Worktree' },
+			group: 'openWorktrees@1',
+			enablement: () => !App.getContext<boolean>('git.operationInProgress'),
+			when: (ctx: SCMMenuContext) => ctx.scmProviderContext === 'worktree'
+		},
+		{
+			command: { id: 'git.createWorktree', title: 'Create Worktree...' },
+			group: 'worktrees@1',
+			enablement: () => !App.getContext<boolean>('git.operationInProgress'),
+			when: (ctx: SCMMenuContext) => ctx.scmProviderContext === 'repository'
+		},
+		{
+			command: { id: 'git.deleteWorktree2', title: 'Delete Worktree' },
+			group: 'worktrees@2',
+			enablement: () => !App.getContext<boolean>('git.operationInProgress'),
+			when: (ctx: SCMMenuContext) => ctx.scmProviderContext === 'worktree'
+		}
+	]);
 }
 
 function gitPluginSettings(): Acode.PluginSettings {
@@ -1338,6 +1372,20 @@ function gitPluginSettings(): Acode.PluginSettings {
 				checkbox: configs.optimisticUpdate,
 				text: 'Git: Optimistic Update (Experimental)',
 				info: 'Controls whether to optimistically update the state of the Source Control view after running git commands.'
+			},
+			{
+				key: 'detectWorktrees',
+				checkbox: configs.detectWorktrees,
+				text: 'Git: Detect Worktrees',
+				info: 'Controls whether to automatically detect Git worktrees.'
+			},
+			{
+				key: 'detectWorktreesLimit',
+				value: configs.detectWorktreesLimit,
+				text: 'Git: Detect Worktrees Limit',
+				info: 'Controls the limit of Git worktrees detected.',
+				prompt: 'Detect Worktrees Limit',
+				promptType: 'number'
 			}
 		],
 		cb(key: string, value: unknown) {

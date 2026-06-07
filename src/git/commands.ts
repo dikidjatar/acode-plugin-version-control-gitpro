@@ -6,13 +6,13 @@ import { ApiRepository } from "./api/api1";
 import { Branch, CommitOptions, ForcePushMode, GitErrorCodes, Ref, RefType, Remote, RemoteSourcePublisher, Status } from "./api/git";
 import { item, showDialogMessage } from "./dialog";
 import { UnifiedDiff } from "./diff";
-import { Git, Stash } from "./git";
+import { Git, GitError, Stash, Worktree } from "./git";
 import { getInputHintResult, HintItem, InputHint, showInputHints } from "./hints";
 import { LogOutputChannel } from "./logger";
 import { Model } from "./model";
 import { Repository, Resource, ResourceGroupType } from "./repository";
 import { toGitUri } from "./uri";
-import { fromNow, getModeForFile, grep, isDescendant, pathEquals } from "./utils";
+import { coalesce, fromNow, getModeForFile, grep, isDescendant, pathEquals, toFullPath } from "./utils";
 
 const fileBrowser = acode.require('fileBrowser');
 const Url = acode.require('Url');
@@ -231,6 +231,46 @@ class RemoteTagDeleteItem extends RefItem {
     if (this.ref.name) {
       await repository.deleteRemoteRef(remote, this.ref.name);
     }
+  }
+}
+
+class WorktreeItem implements HintItem {
+  get label(): string { return this.worktree.name; }
+
+  get icon(): string { return 'vscode-codicons_list_tree'; }
+
+  get description(): string | undefined { return this.worktree.path; }
+
+  constructor(readonly worktree: Worktree) { }
+}
+
+class WorktreeDeleteItem extends WorktreeItem {
+  override get description(): string | undefined {
+    if (!this.worktree.commitDetails) {
+      return undefined;
+    }
+
+    return coalesce([
+      this.worktree.detached ? 'detached' : this.worktree.ref.substring(11),
+      this.worktree.commitDetails.hash.substring(0, this.shortCommitLength),
+      this.worktree.commitDetails.message.split('\n')[0]
+    ]).join(' \u2022 ');
+  }
+
+  get detail(): string {
+    return this.worktree.path;
+  }
+
+  constructor(worktree: Worktree, private readonly shortCommitLength: number) {
+    super(worktree);
+  }
+
+  async run(mainRepository: Repository): Promise<void> {
+    if (!this.worktree.path) {
+      return;
+    }
+
+    await mainRepository.deleteWorktree(this.worktree.path);
   }
 }
 
@@ -1925,11 +1965,210 @@ export class CommandCenter {
         : remoteTags.map(ref => new TagDeleteItem(ref, commitShortHashLength));
     }
 
-    const choice = await showInputHints(tagHints(), { placeholder: 'Select a tag to delete' });
+    const choice = await showInputHints<TagDeleteItem | HintItem>(tagHints(), { placeholder: 'Select a tag to delete' });
 
     if (choice instanceof TagDeleteItem) {
       await choice.run(repository);
     }
+  }
+
+  @command('Create Worktree...', { repository: true })
+  async createWorktree(repository?: Repository): Promise<void> {
+    if (!repository) {
+      return;
+    }
+
+    await this._createWorktree(repository);
+  }
+
+  async _createWorktree(repository: Repository): Promise<void> {
+    const gitConfig = config.get('vcgit')!;
+    const branchPrefix = gitConfig.branchPrefix;
+
+    // Get commitish and branch for the new worktree
+    const worktreeDetails = await this.getWorktreeCommitishAndBranch(repository);
+    if (!worktreeDetails) {
+      return;
+    }
+
+    const { commitish, branch } = worktreeDetails;
+    const worktreeName = ((branch ?? commitish).startsWith(branchPrefix)
+      ? (branch ?? commitish).substring(branchPrefix.length).replace(/\//g, '-')
+      : (branch ?? commitish).replace(/\//g, '-'));
+
+    // Get path for the new worktree
+    const worktreePath = await this.getWorktreePath(repository, worktreeName);
+    if (!worktreePath) {
+      return;
+    }
+
+    try {
+      await repository.createWorktree({ path: worktreePath, branch, commitish: commitish });
+    } catch (err) {
+      if (err instanceof GitError && err.gitErrorCode === GitErrorCodes.WorktreeAlreadyExists) {
+        await this.handleWorktreeAlreadyExists(err);
+      } else if (err instanceof GitError && err.gitErrorCode === GitErrorCodes.WorktreeBranchAlreadyUsed) {
+        await this.handleWorktreeBranchAlreadyUsed(err);
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  private async getWorktreeCommitishAndBranch(repository: Repository): Promise<{ commitish: string; branch: string | undefined } | undefined> {
+    const gitConfig = config.get('vcgit')!;
+    const showRefDetails = gitConfig.showReferenceDetails;
+
+    const createBranch = new CreateBranchItem();
+    const getBranchHints = async () => {
+      const refs = await repository.getRefs({ includeCommitDetails: showRefDetails });
+      const itemsProcessor = new RefItemsProcessor(repository, [
+        new RefProcessor(RefType.Head),
+        new RefProcessor(RefType.RemoteHead),
+        new RefProcessor(RefType.Tag)
+      ]);
+      const branchItems = itemsProcessor.processRefs(refs);
+      return [createBranch, ...branchItems];
+    }
+
+    const placeholder = 'Select a branch or tag to create the new worktree from';
+    const choice = await showInputHints(getBranchHints(), { placeholder });
+
+    if (!choice) {
+      return undefined;
+    }
+
+    if (choice === createBranch) {
+      // Create new branch
+      const branch = await this.promptForBranchName(repository);
+      if (!branch) {
+        return undefined;
+      }
+
+      return { commitish: 'HEAD', branch };
+    } else {
+      // Existing reference
+      if (!(choice instanceof RefItem) || !choice.refName) {
+        return undefined;
+      }
+
+      if (choice.refName === repository.HEAD?.name) {
+        const message = `Branch "${choice.refName}" is already checked out in the current repository.`;
+        const createBranch = item('Create New Branch');
+        const result = await showDialogMessage('WARNING', message, createBranch);
+
+        if (result === createBranch) {
+          const branch = await this.promptForBranchName(repository);
+          if (!branch) {
+            return undefined;
+          }
+
+          return { commitish: 'HEAD', branch };
+        } else {
+          return undefined;
+        }
+      } else {
+        // Check whether the selected branch is checked out in an existing worktree
+        const worktree = repository.worktrees.find(worktree => worktree.ref === choice.refId);
+        if (worktree) {
+          const message = `Branch "${choice.refName}" is already checked out in the worktree at "${worktree.path}".`;
+          await this.handleWorktreeConflict(worktree.path, message);
+          return;
+        }
+        return { commitish: choice.refName, branch: undefined };
+      }
+    }
+  }
+
+  private async getWorktreePath(_repository: Repository, worktreeName: string): Promise<string | undefined> {
+    const result = await fileBrowser('folder', 'Select as Worktree Destination', true);
+    return Url.join(uriToPath(result.url), worktreeName);
+  }
+
+  private async handleWorktreeBranchAlreadyUsed(err: GitError): Promise<void> {
+    const match = err.stderr?.match(/fatal: '([^']+)' is already used by worktree at '([^']+)'/);
+
+    if (!match) {
+      return;
+    }
+
+    const [, branch, path] = match;
+    const message = `Branch "${branch}" is already checked out in the worktree at "${path}".`;
+    await this.handleWorktreeConflict(path, message);
+  }
+
+  private async handleWorktreeAlreadyExists(err: GitError): Promise<void> {
+    const match = err.stderr?.match(/fatal: '([^']+)'/);
+
+    if (!match) {
+      return;
+    }
+
+    const [, path] = match;
+    const message = `A worktree already exists at "${path}".`;
+    await this.handleWorktreeConflict(path, message);
+  }
+
+  private async handleWorktreeConflict(path: string, message: string): Promise<void> {
+    await this.model.openRepository(path, true);
+
+    const worktreeRepository = this.model.getRepository(path);
+
+    if (!worktreeRepository) {
+      return;
+    }
+
+    const openWorktree = item('Open Worktree in Current Window');
+    const choice = await showDialogMessage('WARNING', message, openWorktree);
+
+    if (choice === openWorktree) {
+      this.openWorktree(worktreeRepository);
+    }
+  }
+
+  @command('Delete Worktree...', { repository: true })
+  async deleteWorktree(repository: Repository): Promise<void> {
+    const gitConfig = config.get('vcgit')!;
+    const commitShortHashLength = gitConfig.commitShortHashLength;
+
+    const worktreeHints = async (): Promise<WorktreeDeleteItem[] | HintItem[]> => {
+      const worktrees = await repository.getWorktreeDetails();
+      return worktrees.length === 0
+        ? [{ label: 'ⓘ This repository has no worktrees.' }]
+        : worktrees.map(worktree => new WorktreeDeleteItem(worktree, commitShortHashLength));
+    }
+
+    const placeholder = 'Select a worktree to delete';
+    const choice = await showInputHints<WorktreeDeleteItem | HintItem>(worktreeHints(), { placeholder });
+
+    if (choice instanceof WorktreeDeleteItem) {
+      await choice.run(repository);
+    }
+  }
+
+  @command('Delete Worktree', { repository: true })
+  async deleteWorktree2(repository: Repository): Promise<void> {
+    if (!repository.dotGit.commonPath) {
+      return;
+    }
+
+    const mainRepository = this.model.getRepository(Url.dirname(toFullPath(repository.dotGit.commonPath)));
+    if (!mainRepository) {
+      acode.alert('ERROR', 'You cannot delete the worktree you are currently in. Please switch to the main repository first.');
+      return;
+    }
+
+    await mainRepository.deleteWorktree(repository.root);
+  }
+
+  @command('Open Worktree', { repository: true })
+  openWorktree(repository: Repository): void {
+    if (!repository) {
+      return;
+    }
+
+    const uri = toFileUrl(repository.root);
+    openFolder(uri, { name: Url.basename(uri)! });
   }
 
   @command('Delete Remote Tag...', { repository: true })

@@ -77,6 +77,14 @@ export interface Remote {
 	readonly isReadOnly: boolean;
 }
 
+export interface Worktree {
+	readonly name: string;
+	readonly path: string;
+	readonly ref: string;
+	readonly main: boolean;
+	readonly detached: boolean;
+}
+
 export const enum Status {
 	INDEX_MODIFIED,
 	INDEX_ADDED,
@@ -107,6 +115,8 @@ export interface Change {
 	readonly renameUri: string | undefined;
 	readonly status: Status;
 }
+
+export type RepositoryKind = 'repository' | 'submodule' | 'worktree';
 
 export interface RepositoryState {
 	readonly HEAD: Branch | undefined;

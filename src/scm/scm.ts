@@ -218,6 +218,15 @@ class SourceControlResourceGroupImpl implements SourceControlResourceGroup {
     this.#scm.updateGroupLabel(this._sourceControlHandle, this.handle, label);
   }
 
+  private _contextValue: string | undefined = undefined;
+  get contextValue(): string | undefined {
+    return this._contextValue;
+  }
+  set contextValue(contextValue: string | undefined) {
+    this._contextValue = contextValue;
+    this.#scm.updateGroup(this._sourceControlHandle, this.handle, { contextValue: this._contextValue, hideWhenEmpty: this._hideWhenEmpty });
+  }
+
   private _hideWhenEmpty: boolean | undefined = undefined;
   get hideWhenEmpty(): boolean | undefined { return this._hideWhenEmpty };
   set hideWhenEmpty(hideWhenEmpty: boolean | undefined) {
@@ -273,8 +282,9 @@ class SourceControlResourceGroupImpl implements SourceControlResourceGroup {
 
         const icon = r.decorations?.icon;
         const strikeThrough = r.decorations && !!r.decorations.strikeThrough;
+        const contextValue = r.contextValue || '';
 
-        const rawResource = [handle, sourceUri, icon, strikeThrough] as SCMRawResource;
+        const rawResource = [handle, sourceUri, icon, strikeThrough, contextValue] as SCMRawResource;
 
         return { rawResource, handle };
       });
@@ -408,6 +418,20 @@ class SourceControlImpl implements SourceControl {
     return this._rootUri;
   }
 
+  private _contextValue: string | undefined = undefined;
+  get contextValue(): string | undefined {
+    return this._contextValue;
+  }
+
+  set contextValue(contextValue: string | undefined) {
+    if (this._contextValue === contextValue) {
+      return;
+    }
+
+    this._contextValue = contextValue;
+    this.#scm.updateSourceControl(this.handle, { contextValue });
+  }
+
   private _inputBox: SourceControlInputBox;
   get inputBox(): SourceControlInputBox { return this._inputBox; }
 
@@ -477,7 +501,7 @@ class SourceControlImpl implements SourceControl {
 
   @debounce(300)
   eventuallyAddResourceGroups(): void {
-    const groups: [number /* handle */, string /* id */, string /* label */, boolean | undefined /* hideWhenEmpty */][] = [];
+    const groups: [number /* handle */, string /* id */, string /* label */, boolean | undefined /* hideWhenEmpty */, string | undefined /* contextValue */][] = [];
     const splices: SCMRawResourceSplices[] = [];
 
     for (const [group, disposable] of this.createdResourceGroups) {
@@ -495,7 +519,7 @@ class SourceControlImpl implements SourceControl {
         this.#scm.unregisterGroup(this.handle, group.handle);
       });
 
-      groups.push([group.handle, group.id, group.label, group.hideWhenEmpty]);
+      groups.push([group.handle, group.id, group.label, group.hideWhenEmpty, group.contextValue]);
 
       const snapshot = group._takeResourceStateSnapshot();
 

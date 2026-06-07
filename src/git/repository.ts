@@ -1,5 +1,6 @@
 import { App } from "../base/app";
 import { config } from "../base/config";
+import { FileDecoration } from "../base/decorationService";
 import { debounce, memoize, throttle } from "../base/decorators";
 import { Disposable, IDisposable } from "../base/disposable";
 import { Emitter, Event } from "../base/event";
@@ -9,17 +10,17 @@ import { SourceControl, SourceControlCommandAction, SourceControlInputBox, Sourc
 import { ActionButton } from "./actionButton";
 import { CommandActions } from "./actions";
 import { ApiRepository } from "./api/api1";
-import { Branch, BranchQuery, Change, Commit, CommitOptions, FetchOptions, ForcePushMode, GitErrorCodes, LogOptions, Ref, RefType, Remote, Status } from "./api/git";
+import { Branch, BranchQuery, Change, Commit, CommitOptions, FetchOptions, ForcePushMode, GitErrorCodes, LogOptions, Ref, RefType, Remote, RepositoryKind, Status } from "./api/git";
 import { AutoFetcher } from "./autofetch";
-import { FileDecoration } from "../base/decorationService";
-import { Repository as BaseRepository, GitError, LsTreeElement, PullOptions, RefQuery, Stash, Submodule } from "./git";
+import { item, showDialogMessage } from "./dialog";
+import { Repository as BaseRepository, GitError, LsTreeElement, PullOptions, RefQuery, Stash, Submodule, Worktree } from "./git";
 import { LogOutputChannel } from "./logger";
 import { Operation, OperationKind, OperationManager, OperationResult } from "./operation";
 import { IPushErrorHandlerRegistry } from "./pushError";
 import { IRemoteSourcePublisherRegistry } from "./remotePublisher";
 import { toGitUri } from "./uri";
-import { find, getCommitShortHash, isDescendant, relativePath, toFullPath, toShortPath } from "./utils";
-import { IFileWatcher, FileWatcher, watch } from "./watch";
+import { find, getCommitShortHash, isDescendant, pathEquals, relativePath, toFullPath, toShortPath } from "./utils";
+import { FileWatcher, IFileWatcher, watch } from "./watch";
 
 const helpers = acode.require('helpers');
 const Url = acode.require('url');
@@ -570,6 +571,11 @@ export class Repository implements IDisposable {
     return this._submodules;
   }
 
+  private _worktrees: Worktree[] = [];
+  get worktrees(): Worktree[] {
+    return this._worktrees;
+  }
+
   private _rebaseCommit: Commit | undefined = undefined;
   set rebaseCommit(rebaseCommit: Commit | undefined) {
     if (this._rebaseCommit && !rebaseCommit) {
@@ -632,6 +638,10 @@ export class Repository implements IDisposable {
     return this.repository.dotGit;
   }
 
+  get kind(): RepositoryKind {
+    return this.repository.kind;
+  }
+
   private isRepositoryHuge: false | { limit: number } = false;
   private didWarnAboutLimit = false;
 
@@ -675,7 +685,14 @@ export class Repository implements IDisposable {
 
     this.disposables.push(new FileEventLogger(onRepositoryWorkingTreeFileChange, onRepositoryDotGitFileChange, logger));
 
-    this._sourceControl = scm.createSourceControl('git', 'Git', this.repository.root, undefined);
+    const icon = repository.kind === 'submodule'
+      ? 'vscode-codicons_archive'
+      : repository.kind === 'worktree'
+        ? 'vscode-codicons_worktree'
+        : 'repo'
+
+    this._sourceControl = scm.createSourceControl('git', 'Git', this.repository.root, icon);
+    this._sourceControl.contextValue = repository.kind;
     this.disposables.push(this._sourceControl);
 
     this.updateInputBoxPlaceholder();
@@ -878,6 +895,40 @@ export class Repository implements IDisposable {
     return await this.run(Operation.GetRefs, () => this.repository.getRefs(query));
   }
 
+  async getWorktrees(): Promise<Worktree[]> {
+    return await this.run(Operation.Worktree(true), () => this.repository.getWorktrees());
+  }
+
+  async getWorktreeDetails(): Promise<Worktree[]> {
+    return this.run(Operation.Worktree(true), async () => {
+      const worktrees = await this.repository.getWorktrees();
+      if (worktrees.length === 0) {
+        return [];
+      }
+
+      // Get refs for worktrees that point to a ref
+      const worktreeRefs = worktrees
+        .filter(worktree => !worktree.detached)
+        .map(worktree => worktree.ref);
+
+      // Get the commit details for worktrees that point to a ref
+      const refs = await this.getRefs({ pattern: worktreeRefs, includeCommitDetails: true });
+
+      // Get the commit details for detached worktrees
+      const commits = await Promise.all(worktrees
+        .filter(worktree => worktree.detached)
+        .map(worktree => this.repository.getCommit(worktree.ref)));
+
+      return worktrees.map(worktree => {
+        const commitDetails = worktree.detached
+          ? commits.find(commit => commit.hash === worktree.ref)
+          : refs.find(ref => `refs/heads/${ref.name}` === worktree.ref)?.commitDetails;
+
+        return { ...worktree, commitDetails } satisfies Worktree;
+      });
+    });
+  }
+
   async getRemoteRefs(remote: string, opts?: { heads?: boolean; tags?: boolean }): Promise<Ref[]> {
     return await this.run(Operation.GetRemoteRefs, () => this.repository.getRemoteRefs(remote, opts));
   }
@@ -908,6 +959,66 @@ export class Repository implements IDisposable {
 
   async deleteTag(name: string): Promise<void> {
     await this.run(Operation.DeleteTag, () => this.repository.deleteTag(name));
+  }
+
+  async createWorktree(options?: { path?: string; commitish?: string; branch?: string; noTrack?: boolean }): Promise<string> {
+    const gitConfig = config.get('vcgit')!;
+    const branchPrefix = gitConfig.branchPrefix;
+
+    return await this.run(Operation.Worktree(false), async () => {
+      let worktreeName: string | undefined;
+      let { path: worktreePath, commitish, branch, noTrack } = options || {};
+
+      // Create worktree path based on the branch name
+      if (worktreePath === undefined && branch !== undefined) {
+        worktreeName = branch.startsWith(branchPrefix)
+          ? branch.substring(branchPrefix.length).replace(/\//g, '-')
+          : branch.replace(/\//g, '-');
+        worktreeName = Url.join(Url.dirname(this.root), `${Url.basename(this.root)}.worktrees`, worktreeName);
+      }
+
+      // Ensure that the worktree path is unique
+      if (this.worktrees.some(worktree => pathEquals(worktree.path, worktreePath!))) {
+        let counter = 0, uniqueWorktreePath: string;
+        do {
+          uniqueWorktreePath = `${worktreePath}-${++counter}`;
+        } while (this.worktrees.some(wt => pathEquals(wt.path, uniqueWorktreePath)));
+
+        worktreePath = uniqueWorktreePath;
+      }
+
+      // Create the worktree
+      await this.repository.addWorktree({ path: worktreePath!, commitish: commitish ?? 'HEAD', branch, noTrack });
+
+      return worktreePath!;
+    });
+  }
+
+  async deleteWorktree(path: string, options?: { force?: boolean }): Promise<void> {
+    await this.run(Operation.Worktree(false), async () => {
+      const worktree = this.repositoryResolver.getRepository(path);
+
+      const deleteWorktree = async (options?: { force?: boolean }): Promise<void> => {
+        await this.repository.deleteWorktree(path, options);
+        worktree?.dispose();
+      };
+
+      try {
+        await deleteWorktree();
+      } catch (err) {
+        if (err.gitErrorCode === GitErrorCodes.WorktreeContainsChanges) {
+          const forceDelete = item('Force Delete');
+          const message = 'The worktree contains modified or untracked files. Do you want to force delete?';
+          const choice = await showDialogMessage('WARNING', message, forceDelete);
+          if (choice === forceDelete) {
+            await deleteWorktree({ ...options, force: true });
+          }
+          return;
+        }
+
+        throw err;
+      }
+    });
   }
 
   async checkout(treeish: string, opts?: { detached?: boolean; pullBeforeCheckout?: boolean }): Promise<void> {
@@ -1559,10 +1670,11 @@ export class Repository implements IDisposable {
       this._updateResourceGroupsState(optimisticResourcesGroups);
     }
 
-    const [HEAD, remotes, submodules, rebaseCommit, mergeInProgress] = await Promise.all([
+    const [HEAD, remotes, submodules, worktrees, rebaseCommit, mergeInProgress] = await Promise.all([
       this.repository.getHEADRef(),
       this.repository.getRemotes(),
       this.repository.getSubmodules(),
+      this.repository.getWorktrees(),
       this.getRebaseCommit(),
       this.isMergeInProgress()
     ]);
@@ -1570,6 +1682,7 @@ export class Repository implements IDisposable {
     this._HEAD = HEAD;
     this._remotes = remotes;
     this._submodules = submodules;
+    this._worktrees = worktrees!;
     this.rebaseCommit = rebaseCommit;
     this.mergeInProgress = mergeInProgress;
 

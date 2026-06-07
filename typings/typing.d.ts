@@ -70,6 +70,8 @@ interface IGitConfig {
   readonly showDecorationInFileTree: boolean;
   readonly refreshOnSaveFile: boolean;
   readonly optimisticUpdate: boolean;
+  readonly detectWorktrees: boolean;
+  readonly detectWorktreesLimit: number;
 }
 
 declare namespace Acode {
