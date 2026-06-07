@@ -60,18 +60,18 @@ class CheckoutCommandAction {
     }
 
     if (this.state.isCheckoutRunning) {
-      return '$(loading~spin)';
+      return '$(vscode-codicons_loading~spin)';
     }
 
     if (this.repository.HEAD.type === RefType.Head && this.repository.HEAD.name) {
-      return '$(branch)';
+      return '$(vscode-codicons_git_branch)';
     }
 
     if (this.repository.HEAD.type === RefType.Tag) {
-      return '$(tag)';
+      return '$(vscode-codicons_tag)';
     }
 
-    return '$(git-commit)';
+    return '$(vscode-codicons_git_commit)';
   }
 
   private onDidChangeOperations(): void {
@@ -181,13 +181,13 @@ class SyncCommandAction {
 
       return {
         id: command,
-        title: `$(cloud-upload)`,
+        title: `$(vscode-codicons_cloud_upload)`,
         arguments: [this.repository.sourceControl]
       }
     }
-``
+    ``
     const HEAD = this.state.HEAD;
-    let icon = 'sync';
+    let icon = 'vscode-codicons_sync';
     let text = '';
     let command = '';
 
@@ -199,7 +199,7 @@ class SyncCommandAction {
 
         command = 'git.sync';
       } else {
-        icon = 'cloud-upload';
+        icon = 'vscode-codicons_cloud_upload';
         command = 'git.publish';
       }
     } else {

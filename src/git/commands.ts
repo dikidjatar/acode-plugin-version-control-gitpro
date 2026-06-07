@@ -46,7 +46,7 @@ class CreateBranchFromItem extends CheckoutCommandItem {
 
 class CheckoutDetachedItem extends CheckoutCommandItem {
   get label(): string { return 'Checkout detached...'; }
-  get icon(): string { return 'debug-disconnect'; }
+  get icon(): string { return 'vscode-codicons_debug_disconnect'; }
 }
 
 class RefItemSeparator implements HintItem {
@@ -85,9 +85,9 @@ class RefItem implements HintItem {
 
   get icon(): string {
     switch (this.ref.type) {
-      case RefType.Head: return 'branch';
+      case RefType.Head: return 'vscode-codicons_git_branch';
       case RefType.RemoteHead: return 'cloud';
-      case RefType.Tag: return 'tag';
+      case RefType.Tag: return 'vscode-codicons_tag';
     }
   }
 
