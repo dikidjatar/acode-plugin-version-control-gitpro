@@ -7,6 +7,10 @@ import { IView } from "./views";
 
 class ListDelegate implements IListDelegate<ISCMRepository> {
 
+  constructor(
+    private readonly getSelectedRepositories: () => readonly ISCMRepository[]
+  ) { }
+
   getHeight(element: ISCMRepository): number {
     return 34;
   }
@@ -16,6 +20,10 @@ class ListDelegate implements IListDelegate<ISCMRepository> {
   }
 
   isSupportedSwipeRight(element: ISCMRepository): boolean {
+    const selectedRepositories = this.getSelectedRepositories();
+    if (selectedRepositories.length === 1) {
+      return isSCMRepository(element) && selectedRepositories[0] !== element;
+    }
     return isSCMRepository(element);
   }
 }
@@ -66,7 +74,7 @@ export class ScmRepositoriesView extends Disposable.Disposable implements IView 
     this.list = new CollapsableList<ISCMRepository>(
       'Repositories',
       container,
-      new ListDelegate(),
+      new ListDelegate(() => this.scmViewService.visibleRepositories),
       [new RepositoryRenderer(false, this.scmViewService, this.scmCommandService, this.scmMenuService)],
       {
         allCaps: true,
