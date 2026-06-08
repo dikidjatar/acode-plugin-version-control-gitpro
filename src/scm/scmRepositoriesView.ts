@@ -1,9 +1,9 @@
 import { Disposable, DisposableMap, DisposableStore, IDisposable } from "../base/disposable";
 import { CollapsableList, IListContextMenuEvent, IListDelegate, IListEvent, unthemedListStyles } from "../base/list";
-import { IView } from "./views";
 import { RepositoryRenderer } from "./scmRepositoryRenderer";
 import { ISCMCommandService, ISCMMenuService, ISCMRepository, ISCMService, ISCMViewService } from "./types";
 import { isSCMRepository } from "./utils";
+import { IView } from "./views";
 
 class ListDelegate implements IListDelegate<ISCMRepository> {
 
@@ -76,6 +76,7 @@ export class ScmRepositoriesView extends Disposable.Disposable implements IView 
     this._register(this.list);
     this._register(this.list.onDidChangeSelection(this.onListSelectionChange, this));
     this._register(this.list.onContextMenu(this.onListContextMenu, this));
+    this._register(this.list.onDidSwipeRightSelect(this.onListSwipeRightSelect, this));
   }
   private onDidAddRepository(repository: ISCMRepository): void {
     const disposable = new DisposableStore();
@@ -137,6 +138,33 @@ export class ScmRepositoriesView extends Disposable.Disposable implements IView 
 
       this.list.scrollTop = scrollTop;
     }
+  }
+
+  private onListSwipeRightSelect(e: IListEvent<ISCMRepository>): void {
+    if (e.elements.length === 0) {
+      return;
+    }
+
+    const repository = e.elements[0];
+    if (!isSCMRepository(repository)) {
+      return;
+    }
+
+    const scrollTop = this.list.scrollTop;
+    const currentlyVisible = this.scmViewService.visibleRepositories;
+    const isVisible = this.scmViewService.isVisible(repository);
+
+    if (isVisible) {
+      // Deselect but keep at least one repository visible at all times.
+      if (currentlyVisible.length > 1) {
+        this.scmViewService.visibleRepositories = currentlyVisible.filter(r => r !== repository);
+      }
+    } else {
+      // Add to the visible
+      this.scmViewService.visibleRepositories = [...currentlyVisible, repository];
+    }
+
+    this.list.scrollTop = scrollTop;
   }
 
   private updateListSelection(): void {
