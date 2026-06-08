@@ -13,6 +13,7 @@ export interface IListRenderer<T, TTemplateData> {
 export interface IListDelegate<T> {
   getHeight(element: T): number;
   getTemplateId(element: T): string;
+  isSupportedSwipeRight?(element: T): boolean;
 }
 
 export interface IListBrowserMouseEvent extends MouseEvent {
@@ -506,10 +507,13 @@ class List<T> implements IDisposable {
 
     const touch = e.touches[0];
     const index = this.getItemIndexFromEventTarget(e.target);
+    const swipeIndex = (typeof index !== 'undefined' && this.isSwipeRightSupported(index))
+      ? index
+      : undefined;
     this.touchState = {
       startX: touch.clientX,
       startY: touch.clientY,
-      index,
+      index: swipeIndex,
       isDragging: false,
       feedbackEl: index !== undefined
         ? (this.items[index]?.row?.domNode ?? null)
@@ -599,6 +603,12 @@ class List<T> implements IDisposable {
       this.touchState.feedbackEl.classList.remove('swipe-selecting');
     }
     this.touchState = undefined;
+  }
+
+  private isSwipeRightSupported(index: number): boolean {
+    const item = this.items[index];
+    return typeof item !== undefined &&
+      (this.delegate.isSupportedSwipeRight?.(item.element) ?? false);
   }
 
   style(styles: IListStyles): void {
