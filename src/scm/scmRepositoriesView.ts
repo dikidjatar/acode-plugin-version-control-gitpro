@@ -14,6 +14,10 @@ class ListDelegate implements IListDelegate<ISCMRepository> {
   getTemplateId(element: ISCMRepository): string {
     return RepositoryRenderer.TEMPLATE_ID;
   }
+
+  isSupportedSwipeRight(element: ISCMRepository): boolean {
+    return isSCMRepository(element);
+  }
 }
 
 export class ScmRepositoriesView extends Disposable.Disposable implements IView {
