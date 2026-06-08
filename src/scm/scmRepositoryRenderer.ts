@@ -144,6 +144,7 @@ export interface RepositoryTemplate {
   readonly icon: HTMLElement;
   readonly label: HTMLElement;
   readonly action: RepositoryAction;
+  readonly elementDisposables: DisposableStore;
   readonly templateDisposables: DisposableStore;
 }
 
@@ -170,16 +171,38 @@ export class RepositoryRenderer implements IListRenderer<ISCMRepository, Reposit
     const actions = container.appendChild(tag('div', { className: 'actions' }));
     const action = new RepositoryAction(actions, this.renderPrimaryAction, this.scmViewService, this.scmCommandService, this.scmMenuService);
     templateDisposables.add(action);
+    const elementDisposables = templateDisposables.add(new DisposableStore());
 
-    return { icon, label, action, templateDisposables };
+    return { icon, label, action, elementDisposables, templateDisposables };
   }
 
   renderElement(repository: ISCMRepository, index: number, templateData: RepositoryTemplate): void {
-    templateData.icon.className = repository.provider.icon
-      ? `icon ${repository.provider.icon}`
-      : 'icon vscode-codicons_repo';
+    templateData.elementDisposables.clear();
+
+    const updateIcon = () => {
+      const isVisible = this.scmViewService.isVisible(repository);
+      const icon = repository.provider.icon
+        ? repository.provider.icon
+        : 'vscode-codicons_repo';
+  
+      const showSelectedIcon = icon === 'vscode-codicons_repo' && isVisible && this.scmViewService.repositories.length > 1;
+  
+      templateData.icon.className = showSelectedIcon
+        ? `icon ${icon}_selected`
+        : `icon ${icon}`;
+    }
+
+    // Re-evaluate the icon whenever the visible repository set changes so
+    // the selected/unselected state is reflected immediately on click.
+    templateData.elementDisposables.add(this.scmViewService.onDidChangeVisibleRepositories(updateIcon));
+    updateIcon();
+
     templateData.label.textContent = repository.provider.name;
     templateData.action.setRepository(repository);
+  }
+
+  disposeElement(element: ISCMRepository, index: number, templateData: RepositoryTemplate): void {
+    templateData.elementDisposables.clear();
   }
 
   disposeTemplate(templateData: RepositoryTemplate): void {
