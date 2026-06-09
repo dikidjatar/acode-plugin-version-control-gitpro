@@ -246,6 +246,10 @@ async function initialize(baseUrl: string, options: Acode.PluginInitOptions): Pr
 	acode.addIcon('vscode-codicons_worktree', baseUrl + 'assets/vscode-codicons_worktree.svg', { monochrome: true });
 	acode.addIcon('vscode-codicons_list_tree', baseUrl + 'assets/vscode-codicons_list_tree.svg', { monochrome: true });
 
+	acode.addIcon('vscode-codicons_git_branch_conflicts', baseUrl + 'assets/vscode-codicons_git_branch_conflicts.svg', { monochrome: true });
+	acode.addIcon('vscode-codicons_git_branch_staged_changes', baseUrl + 'assets/vscode-codicons_git_branch_staged_changes.svg', { monochrome: true });
+	acode.addIcon('vscode-codicons_git_branch_changes', baseUrl + 'assets/vscode-codicons_git_branch_changes.svg', { monochrome: true });
+
 	const styles = tag('link', { rel: 'stylesheet', href: baseUrl + 'main.css' });
 	document.head.appendChild(styles);
 	disposables.push(Disposable.toDisposable(() => styles.remove()));

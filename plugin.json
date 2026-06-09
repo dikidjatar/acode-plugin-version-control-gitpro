@@ -18,7 +18,10 @@
     "assets/vscode-codicons_git_branch.svg",
     "assets/vscode-codicons_archive.svg",
     "assets/vscode-codicons_worktree.svg",
-    "assets/vscode-codicons_list_tree.svg"
+    "assets/vscode-codicons_list_tree.svg",
+    "assets/vscode-codicons_git_branch_conflicts.svg",
+    "assets/vscode-codicons_git_branch_staged_changes.svg",
+    "assets/vscode-codicons_git_branch_changes.svg"
   ],
   "minVersionCode": 290,
   "license": "MIT",
