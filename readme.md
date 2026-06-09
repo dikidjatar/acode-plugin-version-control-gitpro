@@ -1,6 +1,6 @@
-# Acode Plugin Git SCM
-
 <div align="center">
+
+# Acode Plugin Git SCM
 
 ![Version](https://img.shields.io/badge/version-2.4.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
@@ -8,7 +8,7 @@
 
 **Professional Git integration for Acode Editor**
 
-[Features](#features) • [Installation](#installation) • [Requirements](#requirements) • [API](#api) • [Contributing](#contributing)
+[Features](#features) • [Installation](#installation) • [Requirements](#requirements) • [API](#api-documentation) • [Contributing](#contributing)
 
 </div>
 
@@ -120,8 +120,7 @@ changes.resourceStates = [
   {
     resourceUri: "/path/to/file",
     decorations: {
-      letter: "M",
-      color: "#ffa500",
+      strikeThrough: false,
     },
   },
 ];
@@ -150,7 +149,7 @@ For complete API documentation, see [DOCS.md](DOCS.md).
 | `confirmSync`            | Confirm before sync operation           | `true`  |
 | `allowForcePush`         | Allow force push operations             | `false` |
 
-See all available settings in **Settings → Plugins → Git SCM**.
+See all available settings in **Acode → Settings → Plugins → Git SCM**.
 
 ### Command Palette Commands
 
