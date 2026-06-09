@@ -126,9 +126,13 @@ interface TouchState {
    */
   isDragging: boolean;
   /**
-   * The li.tile DOM node used for visual feedback, or null.
+   * The `li.tile` element
    */
-  feedbackEl: HTMLElement | null;
+  tileElement: HTMLElement | null;
+  /**
+   * All direct children of `tileEl`
+   */
+  feedbackElements: HTMLElement[];
 }
 
 class List<T> implements IDisposable {
@@ -244,9 +248,22 @@ class List<T> implements IDisposable {
     // touchmove must be non-passive so we can call preventDefault() to
     // suppress vertical scrolling while the user is swiping horizontally.
     Event.fromDOMEvent(this.scrollableElement, 'touchstart', { passive: true })(this.onTouchStart, this, this.disposables);
-    Event.fromDOMEvent(this.scrollableElement, 'touchmove', { passive: true })(this.onTouchMove, this, this.disposables);
+    Event.fromDOMEvent(this.scrollableElement, 'touchmove', { passive: false })(this.onTouchMove, this, this.disposables);
     Event.fromDOMEvent(this.scrollableElement, 'touchend', { passive: true })(this.onTouchEnd, this, this.disposables);
     Event.fromDOMEvent(this.scrollableElement, 'touchcancel', { passive: true })(this.onTouchCancel, this, this.disposables);
+
+    // Inject swipe-selection styles scoped to this list instance.
+    //
+    // the translateX transform is applied to the tile's *inner child*
+    // not the tile itself.  overflow:hidden clips the shifted child
+    // content inside the tile boundary, so the tile's
+    // own layout box never changes and the ul.scroll's scrollable area is never expanded
+    // which is what was causing the spurious scrollbars.
+    const swipeStyle = createStyleSheet(this.domNode);
+    swipeStyle.textContent = [
+      `.${this.domId} .tile { overflow: hidden; }`,
+      `.${this.domId} .tile > * { transition: transform .06s linear; }`,
+    ].join('\n');
   }
 
   splice(start: number, deleteCount: number, toInsert: readonly T[]): void {
@@ -510,15 +527,19 @@ class List<T> implements IDisposable {
     const swipeIndex = (typeof index !== 'undefined' && this.isSwipeRightSupported(index))
       ? index
       : undefined;
+
+    const tileElement = index !== undefined ? (this.items[index]?.row?.domNode ?? null) : null;
+    // Collect ALL direct children so the entire tile content moves as one unit.
+    const feedbackEls = tileElement ? (Array.from(tileElement.children) as HTMLElement[]) : [];
+
     this.touchState = {
       startX: touch.clientX,
       startY: touch.clientY,
       index: swipeIndex,
       isDragging: false,
-      feedbackEl: index !== undefined
-        ? (this.items[index]?.row?.domNode ?? null)
-        : null
-    }
+      tileElement: tileElement,
+      feedbackElements: feedbackEls
+    };
   }
 
   private onTouchMove(e: TouchEvent): void {
@@ -534,9 +555,11 @@ class List<T> implements IDisposable {
     // Cancel when the gesture is primarily vertical (after enough movement
     // to reliably determine intent).
     if (deltaY > List.SWIPE_MAX_Y || (totalDelta > 15 && deltaY > deltaX * 1.2)) {
-      if (this.touchState.feedbackEl) {
-        this.touchState.feedbackEl.style.transform = '';
-        this.touchState.feedbackEl.classList.remove('swipe-selecting');
+      for (const element of this.touchState.feedbackElements) {
+        element.style.transform = '';
+      }
+      if (this.touchState.tileElement) {
+        this.touchState.tileElement.classList.remove('swipe-selecting');
       }
       this.touchState.isDragging = false;
       return;
@@ -552,9 +575,11 @@ class List<T> implements IDisposable {
       const cappedX = Math.min(deltaX * 0.4, 24);
       const overThreshold = deltaX >= List.SWIPE_THRESHOLD_X;
 
-      if (this.touchState.feedbackEl) {
-        this.touchState.feedbackEl.style.transform = `translateX(${cappedX}px)`;
-        this.touchState.feedbackEl.classList.toggle('swipe-selecting', overThreshold);
+      for (const element of this.touchState.feedbackElements) {
+        element.style.transform = `translateX(${cappedX}px)`;
+      }
+      if (this.touchState.tileElement) {
+        this.touchState.tileElement.classList.toggle('swipe-selecting', overThreshold);
       }
 
       if (overThreshold) {
@@ -568,11 +593,13 @@ class List<T> implements IDisposable {
       return;
     }
 
-    const { feedbackEl, isDragging, index } = this.touchState;
+    const { feedbackElements, tileElement, isDragging, index } = this.touchState;
 
-    if (feedbackEl) {
-      feedbackEl.style.transform = '';
-      feedbackEl.classList.remove('swipe-selecting');
+    for (const element of feedbackElements) {
+      element.style.transform = '';
+    }
+    if (tileElement) {
+      tileElement.classList.remove('swipe-selecting');
     }
 
     if (isDragging && index !== undefined) {
@@ -581,9 +608,9 @@ class List<T> implements IDisposable {
       e.preventDefault();
 
       // Brief flash to confirm the toggle
-      if (feedbackEl) {
-        feedbackEl.classList.add('swipe-select-flash');
-        setTimeout(() => feedbackEl.classList.remove('swipe-select-flash'), 380);
+      if (tileElement) {
+        tileElement.classList.add('swipe-select-flash');
+        setTimeout(() => tileElement.classList.remove('swipe-select-flash'), 380);
       }
 
       const item = this.items[index];
@@ -598,9 +625,13 @@ class List<T> implements IDisposable {
   }
 
   private onTouchCancel(): void {
-    if (this.touchState?.feedbackEl) {
-      this.touchState.feedbackEl.style.transform = '';
-      this.touchState.feedbackEl.classList.remove('swipe-selecting');
+    if (this.touchState) {
+      for (const el of this.touchState.feedbackElements) {
+        el.style.transform = '';
+      }
+      if (this.touchState.tileElement) {
+        this.touchState.tileElement.classList.remove('swipe-selecting');
+      }
     }
     this.touchState = undefined;
   }
