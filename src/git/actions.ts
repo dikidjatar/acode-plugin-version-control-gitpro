@@ -64,6 +64,14 @@ class CheckoutCommandAction {
     }
 
     if (this.repository.HEAD.type === RefType.Head && this.repository.HEAD.name) {
+      switch (true) {
+        case this.repository.mergeInProgress || !!this.repository.rebaseCommit:
+          return '$(vscode-codicons_git_branch_conflicts)';
+        case this.repository.indexGroup.resourceStates.length > 0:
+          return '$(vscode-codicons_git_branch_staged_changes)';
+        case this.repository.workingTreeGroup.resourceStates.length + this.repository.untrackedGroup.resourceStates.length > 0:
+          return '$(vscode-codicons_git_branch_changes)';
+      }
       return '$(vscode-codicons_git_branch)';
     }
 
