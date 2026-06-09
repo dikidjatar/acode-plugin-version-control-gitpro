@@ -66,15 +66,23 @@ After installation, generate and configure your SSH keys normally.
 4. Tap **Install**
 5. Restart
 
-### Architecture
+### How It Works
 
 The plugin follows a **Shell → Parse → Render** workflow. The same architecture as the VS Code Git extension:
 
-1. **Shell**: Execute Git commands via Acode Executor API
-2. **Parse**: Process stdout/stderr into internal models
-3. **Render**: Display models in UI (resource state, decorations, views)
+```mermaid
+flowchart LR
+    A["⚡ Shell\nAcode Executor API"] --> B["🔍 Parse\nstdout/stderr\n→ Models"]
+    B --> C["🖥️ Render\nUI · Views\nDecorations"]
+```
 
-This approach mirrors [VSCode Git extension](https://github.com/microsoft/vscode/blob/main/extensions/git).
+| Stage      | Responsibility                                            |
+| ---------- | --------------------------------------------------------- |
+| **Shell**  | Execute Git commands via Acode Executor API               |
+| **Parse**  | Process stdout/stderr into internal models                |
+| **Render** | Display models in UI (resource state, decorations, views) |
+
+---
 
 ## API Documentation
 
@@ -149,31 +157,31 @@ For complete API documentation, see [DOCS.md](DOCS.md).
 | `confirmSync`            | Confirm before sync operation           | `true`  |
 | `allowForcePush`         | Allow force push operations             | `false` |
 
-See all available settings in **Acode → Settings → Plugins → Git SCM**.
+> 💡 See all available settings in **Acode → Settings → Plugins → Git SCM**.
 
 ### Command Palette Commands
 
-Press `Ctrl+Shift+P` and type Git:
+Press `Ctrl+Shift+P` and type `Git` to see all available commands:
+
+<details>
+<summary>View all commands</summary>
+<br/>
 
 ```
-Git: Clone
-Git: Init
-Git: Pull
-Git: Push
-Git: Fetch
-Git: Sync
-Git: Commit
-Git: Commit (Amend)
-Git: Undo Last Commit
-Git: Create Branch
-Git: Checkout
-Git: Merge Branch
-Git: Rebase Branch
-Git: Add Remote
-Git: Stage All Changes
-Git: Unstage All Changes
-....
+Git: Clone                   Git: Init
+Git: Pull                    Git: Push
+Git: Fetch                   Git: Sync
+Git: Commit                  Git: Commit (Amend)
+Git: Undo Last Commit        Git: Create Branch
+Git: Checkout                Git: Merge Branch
+Git: Rebase Branch           Git: Add Remote
+Git: Stage All Changes       Git: Unstage All Changes
+...
 ```
+
+</details>
+
+---
 
 ## Contributing
 
@@ -202,4 +210,9 @@ internal APIs.
 
 ---
 
+<div align="center">
+
 _Happy coding ✨_
+
+</div>
+
