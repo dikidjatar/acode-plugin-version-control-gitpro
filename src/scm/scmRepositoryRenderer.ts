@@ -11,13 +11,13 @@ class RepositoryAction implements IDisposable {
   private disposables = new DisposableStore();
 
   constructor(
-    container: HTMLElement,
+    private readonly container: HTMLElement,
     private readonly shouldRenderPrimaryAction: boolean,
     private readonly scmViewService: ISCMViewService,
     private readonly scmCommandService: ISCMCommandService,
     private readonly scmMenuService: ISCMMenuService
   ) {
-    this.actionContainer = container.appendChild(tag('div', { className: 'actions-container' }));
+    this.actionContainer = container.appendChild(tag('ul', { className: 'actions-container' }));
   }
 
   setRepository(repository: ISCMRepository): void {
@@ -49,16 +49,12 @@ class RepositoryAction implements IDisposable {
       if (action.title.trim().length === 0) {
         return;
       }
-
-      const actionItem = tag('li', { className: 'action-item' });
-      actionItem.innerHTML = renderLabelWithIcon2(action.title);
-      this.actionContainer.appendChild(actionItem);
-
-      Event.fromDOMEvent(actionItem, 'click')(e => {
-        e.stopPropagation();
+      const actionItem = this.createActionItem(renderLabelWithIcon2(action.title), () => {
         editorManager.editor.execCommand(action.id, ...(action.arguments || []));
-      }, undefined, this.disposables);
+      })
+      this.actionContainer.appendChild(actionItem);
     });
+    this.container.style.minWidth = `${(commandActions.length * 22) + 22}px`;
 
     this.renderPrimaryActions();
     this.renderSecondaryAction();
@@ -76,17 +72,14 @@ class RepositoryAction implements IDisposable {
     const primaryActions = menu.getPrimaryActions();
     if (this.shouldRenderPrimaryAction) {
       primaryActions.forEach(action => {
-        const actionItem = tag('li', { className: 'action-item primary-action' });
-        actionItem.innerHTML = action.title;
-        this.actionContainer.appendChild(actionItem);
-
-        actionItem.classList.toggle('disabled', !action.enabled);
-
-        Event.fromDOMEvent(actionItem, 'click')(e => {
-          e.stopPropagation();
+        const actionItem = this.createActionItem(action.title, () => {
           this.scmCommandService.executeCommand(action.id, this.repository!.provider);
-        }, undefined, this.disposables);
+        });
+        this.actionContainer.appendChild(actionItem);
+        actionItem.classList.toggle('disabled', !action.enabled);
       });
+      const commandActionLength = this.repository?.provider.commandActions?.length ?? 0;
+      this.container.style.minWidth = `${(primaryActions.length * 22) + (commandActionLength * 22) + 22}px`;
     }
   }
 
@@ -98,12 +91,7 @@ class RepositoryAction implements IDisposable {
       return;
     }
 
-    const secondaryActionToggler = tag('li', { className: 'action-item secondary-toggler' });
-    secondaryActionToggler.innerHTML = `<span class="icon more_vert"></span>`;
-    this.actionContainer.appendChild(secondaryActionToggler);
-
-    Event.fromDOMEvent(secondaryActionToggler, 'click')((e) => {
-      e.stopPropagation();
+    const secondaryActionToggler = this.createActionItem(`<span class="icon more_vert"></span>`, () => {
       this.scmMenuService.showContextMenu({
         toggler: secondaryActionToggler!,
         getActions: (submenu) => this.getActions(submenu),
@@ -111,7 +99,19 @@ class RepositoryAction implements IDisposable {
           this.scmCommandService.executeCommand(id, this.repository!.provider);
         }
       });
+    });
+    this.actionContainer.appendChild(secondaryActionToggler);
+  }
+
+  private createActionItem(label: string, onClick: () => void): HTMLElement {
+    const actionItem = tag('li', { className: 'action-item' });
+    const actionLabel = actionItem.appendChild(tag('div', { className: 'action-label' }));
+    actionLabel.innerHTML = label;
+    Event.fromDOMEvent(actionItem, 'click')(e => {
+      e.stopPropagation();
+      onClick();
     }, undefined, this.disposables);
+    return actionItem;
   }
 
   private getActions(submenu?: string): ISCMMenuItemAction[] {
@@ -184,9 +184,9 @@ export class RepositoryRenderer implements IListRenderer<ISCMRepository, Reposit
       const icon = repository.provider.icon
         ? repository.provider.icon
         : 'vscode-codicons_repo';
-  
+
       const showSelectedIcon = icon === 'vscode-codicons_repo' && isVisible && this.scmViewService.repositories.length > 1;
-  
+
       templateData.icon.className = showSelectedIcon
         ? `icon ${icon}_selected`
         : `icon ${icon}`;
