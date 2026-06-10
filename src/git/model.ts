@@ -33,7 +33,7 @@ class RepositoryHint implements HintItem {
       .join(' ');
   }
 
-  @memoize get icon(): string { return 'repo'; }
+  @memoize get icon(): string { return 'vscode-codicons_repo'; }
 
   constructor(public readonly repository: Repository) { }
 }
@@ -302,6 +302,7 @@ export class Model implements IRepositoryResolver, IRemoteSourcePublisherRegistr
     this._unsafeRepositoriesManager = new UnsafeRepositoriesManager();
 
     App.onDidChangeWorkspaceFolder(this.onDidChangeWorkspaceFolder, this, this.disposables);
+    config.onDidChangeConfiguration(this.onDidChangeConfiguration, this, this.disposables);
 
     this.setState('uninitialized');
     this.doInitialScan().finally(() => this.setState('initialized'));
@@ -412,6 +413,23 @@ export class Model implements IRepositoryResolver, IRemoteSourcePublisherRegistr
     }
   }
 
+  private onDidChangeConfiguration(): void {
+    const gitConfig = config.get('vcgit')!;
+    const enabled = gitConfig.enabled;
+
+    const possibleRepositoryFolders = enabled === true
+      ? addedFolder.filter(folder => !this.getOpenRepository(folder.url))
+      : [];
+
+    const openRepositoriesToDispose = enabled !== true
+      ? this.openRepositories
+      : [];
+
+    this.logger.info(`[Model][onDidChangeConfiguration] Workspace folders: [${possibleRepositoryFolders.map(p => uriToPath(p.url)).join(', ')}]`);
+    possibleRepositoryFolders.forEach(p => this.openRepository(uriToPath(p.url)));
+    openRepositoriesToDispose.forEach(r => r.dispose());
+  }
+
   @sequentialize
   async openRepository(repoPath: string, openIfClosed = false): Promise<void> {
     this.logger.info(`[Model][openRepository] Repository: ${repoPath}`);
@@ -505,6 +523,8 @@ export class Model implements IRepositoryResolver, IRemoteSourcePublisherRegistr
     const gitConfig = config.get('vcgit')!;
     const shouldDetectSubmodules = gitConfig.detectSubmodules;
     const submodulesLimit = gitConfig.detectSubmodulesLimit;
+    const shouldDetectWorktrees = gitConfig.detectWorktrees;
+    const worktreesLimit = gitConfig.detectWorktreesLimit;
 
     const checkForSubmodules = () => {
       if (!shouldDetectSubmodules) {
@@ -526,9 +546,30 @@ export class Model implements IRepositoryResolver, IRemoteSourcePublisherRegistr
         });
     }
 
+    const checkForWorktrees = () => {
+      if (!shouldDetectWorktrees) {
+        this.logger.info('[Model][open] Automatic detection of git worktrees is not enabled.');
+        return;
+      }
+
+      if (repository.worktrees.length > worktreesLimit) {
+        acode.alert('WARNING', `The "${Url.basename(repository.root)}" repository has ${repository.worktrees.length} worktrees which won't be opened automatically. You can still open each one individually by opening a file within.`);
+        statusListener.dispose();
+      }
+
+      repository.worktrees
+        .slice(0, worktreesLimit)
+        .forEach(w => {
+          this.logger.info(`[Model][open] Opening worktree: '${w.path}'`);
+          this.eventuallyScanPossibleGitRepository(w.path);
+        });
+    }
+
     const statusListener = repository.onDidRunGitStatus(() => {
       checkForSubmodules();
+      checkForWorktrees();
     });
+    checkForWorktrees();
 
     const updateOperationInProgressContext = () => {
       let operationInProgress = false;

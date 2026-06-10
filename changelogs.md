@@ -1,5 +1,18 @@
 # ChangeLog
 
+## [2.5.0] - 2026-10-06
+
+- Full worktree management: add, detect, open, and delete worktrees directly from the SCM view, with dedicated icons per worktree
+- Touch Swipe-Right Selection gesture support for selecting list items and repositories in the SCM view;
+- Added a distinct visual indicator for the currently active/selected repository in the SCM repositories list
+- Added dedicated icons for conflict and change states
+  in the Git branch UI
+- Update icons for repository, SCM, sync, and tag; replaced with new vscode codicons for better
+  visual consistency
+- Improved SCM Repositories View
+- Fixed an issue where the repository failed to auto-initialize when `git.enabled` was true.
+- Fixed some bugs
+
 ## [2.4.0] - 2026-23-05
 
 ### Add support for CodeMirror:

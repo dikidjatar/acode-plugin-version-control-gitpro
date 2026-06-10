@@ -188,7 +188,7 @@ export class ActionButton {
     if (this.state.HEAD?.type === RefType.Tag || !this.state.HEAD?.name || this.state.HEAD?.upstream || this.state.isCommitInProgress || this.state.isMergeInProgress || this.state.isRebaseInProgress) { return undefined; }
 
     // Button icon
-    const icon = this.state.isSyncInProgress ? '$(sync~spin)' : '$(cloud-upload)';
+    const icon = this.state.isSyncInProgress ? '$(vscode-codicons_sync~spin)' : '$(vscode-codicons_cloud_upload)';
 
     return {
       command: {
@@ -208,7 +208,7 @@ export class ActionButton {
 
     const ahead = this.state.HEAD.ahead ? ` ${this.state.HEAD.ahead}↑` : '';
     const behind = this.state.HEAD.behind ? ` ${this.state.HEAD.behind}↓` : '';
-    const icon = this.state.isSyncInProgress ? '$(sync~spin)' : '$(sync)';
+    const icon = this.state.isSyncInProgress ? '$(vscode-codicons_sync~spin)' : '$(vscode-codicons_sync)';
 
     return {
       command: {

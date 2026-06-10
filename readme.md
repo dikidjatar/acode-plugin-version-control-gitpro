@@ -1,14 +1,14 @@
-# Acode Plugin Git SCM
-
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-2.4.0-blue.svg)
+# Acode Plugin Git SCM
+
+![Version](https://img.shields.io/badge/version-2.5.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Acode](https://img.shields.io/badge/Acode-Compatible-orange.svg)
 
 **Professional Git integration for Acode Editor**
 
-[Features](#features) • [Installation](#installation) • [Requirements](#requirements) • [API](#api) • [Contributing](#contributing)
+[Features](#features) • [Installation](#installation) • [Requirements](#requirements) • [API](#api-documentation) • [Contributing](#contributing)
 
 </div>
 
@@ -17,11 +17,10 @@
 # Screenshoots
 
 <div align="center" style="display: flex; overflow-x: auto; gap: 10px; padding: 10px;">
-  <img src="https://raw.githubusercontent.com/dikidjatar/acode-plugin-version-control-gitpro/refs/heads/main/screenshot/1.jpg" alt="SCM Sidebar View" width="300"/>
+  <img src="https://raw.githubusercontent.com/dikidjatar/acode-plugin-version-control-gitpro/refs/heads/main/screenshot/1.jpg" alt="Source Control" width="300"/>
   <img src="https://raw.githubusercontent.com/dikidjatar/acode-plugin-version-control-gitpro/refs/heads/main/screenshot/2.jpg" alt="File Tree Decorations" width="300"/>
-  <img src="https://raw.githubusercontent.com/dikidjatar/acode-plugin-version-control-gitpro/refs/heads/main/screenshot/3.jpg" alt="Multiple Repository" width="300"/>
-  <img src="https://raw.githubusercontent.com/dikidjatar/acode-plugin-version-control-gitpro/refs/heads/main/screenshot/4.jpg" alt="Branch Management" width="300"/>
-  <img src="https://raw.githubusercontent.com/dikidjatar/acode-plugin-version-control-gitpro/refs/heads/main/screenshot/5.jpg" alt="Git Command" width="300"/>
+  <img src="https://raw.githubusercontent.com/dikidjatar/acode-plugin-version-control-gitpro/refs/heads/main/screenshot/3.jpg" alt="Branch Management" width="300"/>
+  <img src="https://raw.githubusercontent.com/dikidjatar/acode-plugin-version-control-gitpro/refs/heads/main/screenshot/4.jpg" alt="Git Command" width="300"/>
 </div>
 
 ## Requirements
@@ -66,15 +65,23 @@ After installation, generate and configure your SSH keys normally.
 4. Tap **Install**
 5. Restart
 
-### Architecture
+### How It Works
 
 The plugin follows a **Shell → Parse → Render** workflow. The same architecture as the VS Code Git extension:
 
-1. **Shell**: Execute Git commands via Acode Executor API
-2. **Parse**: Process stdout/stderr into internal models
-3. **Render**: Display models in UI (resource state, decorations, views)
+```mermaid
+flowchart LR
+    A["⚡ Shell\nAcode Executor API"] --> B["🔍 Parse\nstdout/stderr\n→ Models"]
+    B --> C["🖥️ Render\nUI · Views\nDecorations"]
+```
 
-This approach mirrors [VSCode Git extension](https://github.com/microsoft/vscode/blob/main/extensions/git).
+| Stage      | Responsibility                                            |
+| ---------- | --------------------------------------------------------- |
+| **Shell**  | Execute Git commands via Acode Executor API               |
+| **Parse**  | Process stdout/stderr into internal models                |
+| **Render** | Display models in UI (resource state, decorations, views) |
+
+---
 
 ## API Documentation
 
@@ -120,8 +127,7 @@ changes.resourceStates = [
   {
     resourceUri: "/path/to/file",
     decorations: {
-      letter: "M",
-      color: "#ffa500",
+      strikeThrough: false,
     },
   },
 ];
@@ -150,31 +156,31 @@ For complete API documentation, see [DOCS.md](DOCS.md).
 | `confirmSync`            | Confirm before sync operation           | `true`  |
 | `allowForcePush`         | Allow force push operations             | `false` |
 
-See all available settings in **Settings → Plugins → Git SCM**.
+> 💡 See all available settings in **Acode → Settings → Plugins → Git SCM**.
 
 ### Command Palette Commands
 
-Press `Ctrl+Shift+P` and type Git:
+Press `Ctrl+Shift+P` and type `Git` to see all available commands:
+
+<details>
+<summary>View all commands</summary>
+<br/>
 
 ```
-Git: Clone
-Git: Init
-Git: Pull
-Git: Push
-Git: Fetch
-Git: Sync
-Git: Commit
-Git: Commit (Amend)
-Git: Undo Last Commit
-Git: Create Branch
-Git: Checkout
-Git: Merge Branch
-Git: Rebase Branch
-Git: Add Remote
-Git: Stage All Changes
-Git: Unstage All Changes
-....
+Git: Clone                   Git: Init
+Git: Pull                    Git: Push
+Git: Fetch                   Git: Sync
+Git: Commit                  Git: Commit (Amend)
+Git: Undo Last Commit        Git: Create Branch
+Git: Checkout                Git: Merge Branch
+Git: Rebase Branch           Git: Add Remote
+Git: Stage All Changes       Git: Unstage All Changes
+...
 ```
+
+</details>
+
+---
 
 ## Contributing
 
@@ -203,4 +209,9 @@ internal APIs.
 
 ---
 
+<div align="center">
+
 _Happy coding ✨_
+
+</div>
+

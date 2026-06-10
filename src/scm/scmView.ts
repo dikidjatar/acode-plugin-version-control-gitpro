@@ -6,7 +6,7 @@ import { CollapsableList, IListContextMenuEvent, IListDelegate, IListMouseEvent,
 import { SCMMenuItemAction } from "./menus";
 import { IResourceNode, ResourceTree } from "./resourceTree";
 import { RepositoryRenderer } from "./scmRepositoryRenderer";
-import { ISCMActionButton, ISCMActionButtonDescriptor, ISCMCommandService, ISCMInput, ISCMMenuItemAction, ISCMMenuService, ISCMRepository, ISCMRepositoryMenus, ISCMResource, ISCMResourceGroup, ISCMSeparator, ISCMService, ISCMViewService, ISCMViewVisibleRepositoryChangeEvent, ViewMode } from "./types";
+import { ISCMActionButton, ISCMActionButtonDescriptor, ISCMCommandService, ISCMInput, ISCMMenu, ISCMMenuItemAction, ISCMMenuService, ISCMRepository, ISCMRepositoryMenus, ISCMResource, ISCMResourceGroup, ISCMSeparator, ISCMService, ISCMViewService, ISCMViewVisibleRepositoryChangeEvent, ViewMode } from "./types";
 import { disposableTimeout, isSCMActionButton, isSCMInput, isSCMRepository, isSCMResource, isSCMResourceGroup, isSCMResourceNode, isSCMSeparator, renderLabelWithIcon } from "./utils";
 import { IView } from "./views";
 
@@ -845,6 +845,7 @@ export class SCMView extends Disposable.Disposable implements IView {
 
     const element = e.element;
     let menus: ISCMRepositoryMenus | undefined;
+    let menu: ISCMMenu | undefined;
     let actions: ISCMMenuItemAction[] = [];
     let context: unknown = element;
     let showSelectMenu: boolean = false;
@@ -852,34 +853,34 @@ export class SCMView extends Disposable.Disposable implements IView {
 
     if (isSCMRepository(element)) {
       menus = this.scmViewService.menus.getRepositoryMenus(element.provider);
-      const menu = menus.getRepositoryContextMenu(element);
+      menu = menus.getRepositoryContextMenu(element);
       actions = menu.getSecondaryActions();
       context = element.provider;
     } else if (isSCMInput(element) || isSCMActionButton(element)) {
       // noop
     } else if (isSCMResourceGroup(element)) {
       menus = this.scmViewService.menus.getRepositoryMenus(element.provider);
-      const menu = menus.getResourceGroupMenu(element);
+      menu = menus.getResourceGroupMenu(element);
       actions = menu.getSecondaryActions();
       showSelectMenu = true;
       selectMenuTitle = `Group (${element.label})`;
     } else if (isSCMResource(element)) {
       menus = this.scmViewService.menus.getRepositoryMenus(element.resourceGroup.provider);
-      const menu = menus.getResourceMenu(element);
+      menu = menus.getResourceMenu(element);
       actions = menu.getSecondaryActions();
       showSelectMenu = true;
       selectMenuTitle = Url.basename(element.sourceUri)!;
     } else if (isSCMResourceNode(element)) {
       if (element.element) {
         const menus = this.scmViewService.menus.getRepositoryMenus(element.element.resourceGroup.provider);
-        const menu = menus.getResourceMenu(element.element);
+        menu = menus.getResourceMenu(element.element);
         actions = menu.getSecondaryActions();
         showSelectMenu = true;
         selectMenuTitle = Url.basename(element.element.sourceUri)!;
         context = element.element;
       } else {
         const menus = this.scmViewService.menus.getRepositoryMenus(element.context.provider);
-        const menu = menus.getResourceFolderMenu(element.context);
+        menu = menus.getResourceFolderMenu(element.context);
         actions = menu.getSecondaryActions();
         showSelectMenu = true;
         selectMenuTitle = element.name;
@@ -917,9 +918,9 @@ export class SCMView extends Disposable.Disposable implements IView {
     this.scmMenuService.showContextMenu({
       toggler,
       getActions: (submenu: string) => {
-        if (submenu) {
-          const menu = menus?.getSubmenu(submenu);
-          return menu?.getSecondaryActions() ?? [];
+        if (menu && submenu) {
+          const menu2 = menus?.getSubmenu(menu, submenu);
+          return menu2?.getSecondaryActions() ?? [];
         } else {
           return actions;
         }

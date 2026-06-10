@@ -25,6 +25,7 @@ export interface ISCMResource {
   readonly resourceGroup: ISCMResourceGroup;
   readonly sourceUri: string;
   readonly decorations: ISCMResourceDecoration;
+  readonly contextValue: string | undefined;
   open(): boolean;
 }
 
@@ -37,6 +38,7 @@ export interface ISCMResourceGroup {
   readonly onDidChangeResources: Event<void>;
 
   readonly label: string;
+  contextValue: string | undefined;
   readonly hideWhenEmpty?: boolean;
 
   readonly onDidChange: Event<void>;
@@ -57,6 +59,7 @@ export interface ISCMProvider extends IDisposable {
   readonly rootUri?: string;
   readonly icon?: string;
   readonly count?: number;
+  readonly contextValue?: string;
   readonly commandActions: ISCMCommandAction[] | undefined;
   readonly actionButton: ISCMActionButtonDescriptor | undefined;
 }
@@ -132,6 +135,7 @@ export interface ISCMMenuItemAction {
 }
 
 export interface ISCMMenu extends IDisposable {
+  readonly context: SCMMenuContext;
   readonly onDidChange: Event<void>;
   getPrimaryActions(): ISCMMenuItemAction[];
   getSecondaryActions(): ISCMMenuItemAction[];
@@ -145,7 +149,7 @@ export interface ISCMRepositoryMenus {
   getResourceGroupMenu(group: ISCMResourceGroup): ISCMMenu;
   getResourceMenu(resource: ISCMResource): ISCMMenu;
   getResourceFolderMenu(group: ISCMResourceGroup): ISCMMenu;
-  getSubmenu(submenu: string): ISCMMenu;
+  getSubmenu(menu: ISCMMenu, submenu: string): ISCMMenu;
 }
 
 export interface ISCMMenus {
@@ -165,6 +169,9 @@ export interface SCMMenuContext {
   scmProviderRootUri?: string;
   scmProviderHasRoorUri?: boolean;
   scmResourceGroup?: string;
+  scmResourceGroupState?: string;
+  scmResourceState?: string;
+  scmProviderContext?: string;
 }
 
 export interface ISCMMenuService {
@@ -266,7 +273,8 @@ export type SCMRawResource = [
   number /* handle */,
   string /* resourceUri */,
   string | undefined /* icon */,
-  boolean /* strike through*/
+  boolean /* strike through*/,
+  string | undefined /* context value */
 ];
 
 export type SCMRawResourceSplice = [
@@ -284,6 +292,7 @@ export interface SCMProviderFeatures {
   count?: number;
   commandActions?: ISCMCommandAction[];
   actionButton?: ISCMActionButtonDescriptor;
+  contextValue?: string;
 }
 
 export interface SCMArgumentProcessor {
