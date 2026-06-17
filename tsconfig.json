@@ -14,7 +14,7 @@
 		"emitDecoratorMetadata": true,
 		"useUnknownInCatchVariables": false,
 		"types": [
-			"@acode-app/types"
+			"acode-plugin-types"
 		],
 		"paths": {
 			"acode/*": [
