@@ -127,9 +127,9 @@ function buildCommand(
   return finalCommand;
 }
 
-export function getExecutor(): Acode.Executor {
+export function getExecutor(): Executor {
   if (typeof Executor.BackgroundExecutor === 'object') {
-    return Executor.BackgroundExecutor as Acode.Executor;
+    return Executor.BackgroundExecutor as Executor;
   }
 
   return Executor;
