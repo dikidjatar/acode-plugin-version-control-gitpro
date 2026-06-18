@@ -1,5 +1,11 @@
 # ChangeLog
 
+## [2.6.0] - 2026-18-06
+
+- Added folder decorations for file
+- Add emphasized dot badge for folders.
+- Fixed missing decorations on nested subfolders after collapse/expand
+
 ## [2.5.0] - 2026-10-06
 
 - Full worktree management: add, detect, open, and delete worktrees directly from the SCM view, with dedicated icons per worktree
