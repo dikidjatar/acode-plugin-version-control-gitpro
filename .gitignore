@@ -1,6 +1,7 @@
 /node_modules
 /tests
 /.github
+/.vscode
 
 /dist/main.js
 /dist/main.css
