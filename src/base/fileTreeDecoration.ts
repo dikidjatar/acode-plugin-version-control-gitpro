@@ -215,7 +215,8 @@ function renderDecoration(
           width: '7px',
           height: '7px',
           borderRadius: '50%',
-          backgroundColor: decoration.color
+          backgroundColor: decoration.color,
+          opacity: '0.5'
         }
       }));
     } else if (isFileWithBadge) {
