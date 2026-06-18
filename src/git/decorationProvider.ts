@@ -5,6 +5,7 @@
 
 import { config } from "../base/config";
 import { DecorationProvider, decorationService, FileDecoration } from "../base/decorationService";
+import { computeBubbleUpFolderDecorations } from "../base/decorationUtils";
 import { debounce } from "../base/decorators";
 import { Disposable, IDisposable } from "../base/disposable";
 import { Emitter, Event } from "../base/event";
@@ -121,6 +122,8 @@ class GitDecorationProvider implements DecorationProvider {
     this.collectDecorationData(this.repository.workingTreeGroup, newDecorations);
     this.collectDecorationData(this.repository.mergeGroup, newDecorations);
     this.collectSubmoduleDecorationData(newDecorations);
+
+    computeBubbleUpFolderDecorations(newDecorations, this.repository.root);
 
     const uris = new Set([...this.decorations.keys()].concat([...newDecorations.keys()]));
     this.decorations = newDecorations;
