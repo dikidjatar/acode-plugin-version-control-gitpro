@@ -19,6 +19,7 @@ interface FileTreeOptions {
 
 interface FileTree {
   readonly options: FileTreeOptions;
+  readonly childTrees?: Map<string, FileTree>;
   findElement(url: string): HTMLElement | null;
 }
 
@@ -62,10 +63,26 @@ class RootElementCallbackManager {
     this.originalOnExpandedChange = this.fileTree?.options.onExpandedChange;
 
     if (this.fileTree) {
-      this.fileTree.options.onExpandedChange = (folderUrl: string, isExpanded: boolean) => {
+      const newOnExpandedChange = (folderUrl: string, isExpanded: boolean) => {
         this.originalOnExpandedChange?.(folderUrl, isExpanded);
         onExpandedChange(folderUrl, isExpanded);
-      }
+      };
+
+      const patchTree = (tree: FileTree | undefined) => {
+        if (!tree) {
+          return;
+        }
+
+        tree.options.onExpandedChange = newOnExpandedChange;
+
+        if (tree.childTrees instanceof Map) {
+          for (const childTree of tree.childTrees.values()) {
+            patchTree(childTree);
+          }
+        }
+      };
+
+      patchTree(this.fileTree);
     }
 
     this.isPatched = true;
@@ -78,7 +95,21 @@ class RootElementCallbackManager {
 
     this.root.ontoggle = this.originalOntoggle as RootOntoggle;
     if (this.fileTree) {
-      this.fileTree.options.onExpandedChange = this.originalOnExpandedChange;
+      const restoreTree = (tree: FileTree | undefined) => {
+        if (!tree) {
+          return;
+        }
+
+        tree.options.onExpandedChange = this.originalOnExpandedChange;
+
+        if (tree.childTrees instanceof Map) {
+          for (const childTree of tree.childTrees.values()) {
+            restoreTree(childTree);
+          }
+        }
+      };
+
+      restoreTree(this.fileTree);
       this.fileTree = undefined;
     }
     this.isPatched = false;
