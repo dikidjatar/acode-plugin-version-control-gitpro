@@ -185,9 +185,8 @@ function renderDecoration(
   let badge = element.querySelector('.badge') as HTMLElement | null;
 
   const isDirWithColor = type === 'dir' && !!decoration.color;
-  const isFileWithBadge = type === 'file' && !!decoration.badge;
 
-  if (!isDirWithColor && !isFileWithBadge) {
+  if (!isDirWithColor && !decoration.badge) {
     badge?.remove();
   } else {
     if (!badge) {
@@ -219,7 +218,7 @@ function renderDecoration(
           opacity: '0.5'
         }
       }));
-    } else if (isFileWithBadge) {
+    } else if (decoration.badge) {
       badge.textContent = decoration.badge!;
       badge.style.fontSize = '1em';
     }
@@ -228,7 +227,7 @@ function renderDecoration(
   const color = decoration.color || 'var(--primary-text-color)';
   text.style.color = color;
 
-  if (badge && isFileWithBadge) {
+  if (badge && decoration.badge) {
     badge.style.color = color;
   }
 }
