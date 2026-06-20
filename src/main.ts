@@ -634,13 +634,13 @@ function initializeMenus(logger: LogOutputChannel): void {
 		},
 		{
 			command: { id: 'git.ignore', title: 'Add to .gitignore' },
-			when: (ctx: SCMMenuContext) => !App.isCodeMirror() &&
+			when: (ctx: SCMMenuContext) =>
 				ctx.scmProvider === 'git' &&
 				ctx.scmResourceGroup === 'workingTree'
 		},
 		{
 			command: { id: 'git.ignore', title: 'Add to .gitignore' },
-			when: (ctx: SCMMenuContext) => !App.isCodeMirror() &&
+			when: (ctx: SCMMenuContext) =>
 				ctx.scmProvider === 'git' &&
 				ctx.scmResourceGroup === 'untracked'
 		}
@@ -660,7 +660,7 @@ function initializeMenus(logger: LogOutputChannel): void {
 		{
 			command: { id: 'git.ignore', title: 'Add to .gitignore' },
 			group: '1_modification@3',
-			when: (ctx: SCMMenuContext) => !App.isCodeMirror() &&
+			when: (ctx: SCMMenuContext) =>
 				ctx.scmProvider === 'git' &&
 				ctx.scmResourceGroup === 'workingTree'
 		},
@@ -687,7 +687,7 @@ function initializeMenus(logger: LogOutputChannel): void {
 		{
 			command: { id: 'git.ignore', title: 'Add to .gitignore' },
 			group: '1_modification@3',
-			when: (ctx: SCMMenuContext) => !App.isCodeMirror() &&
+			when: (ctx: SCMMenuContext) =>
 				ctx.scmProvider === 'git' &&
 				ctx.scmResourceGroup === 'untracked'
 		},
