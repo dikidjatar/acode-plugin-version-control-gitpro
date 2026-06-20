@@ -1,5 +1,10 @@
 # ChangeLog
 
+## [2.6.1] - 2026-21-06
+
+- Add 'add to .gitignore' scm menu for CodeMirror
+- Fixed badge decoration tab file missing
+
 ## [2.6.0] - 2026-18-06
 
 - Added folder decorations for file
