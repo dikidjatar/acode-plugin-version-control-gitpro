@@ -1479,11 +1479,18 @@ export class Repository implements IDisposable {
       }
 
       const setText = async (file: Acode.EditorFile) => {
-        const session = file.session;
-        const lines = session.doc.getAllLines();
+        const session = file.session as any;
+        const doc = session.doc;
+        const lines = doc.text as string[];
         const lastLine = lines[lines.length - 1];
         const text = lastLine.trim() == '' ? `${textToAppend}\n` : `\n${textToAppend}\n`;
-        session.insert({ row: lines.length, column: 0 }, text);
+
+        if (App.isCodeMirror()) {
+          editorManager.editor.dispatch({ changes: { from: doc.length, to: doc.length, insert: text } });
+        } else {
+          session.insert({ row: lines.length, column: 0 }, text);
+        }
+
         await file.save();
       }
 
