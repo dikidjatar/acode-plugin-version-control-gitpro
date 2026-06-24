@@ -650,7 +650,7 @@ export class CommandCenter {
     const cloneLoader: any = loader.create('Loading', `Cloning git repository "${url}"`, {
       oncancel: () => window.toast('Clone timeout', 3000),
       timeout: 120000
-    });
+    } as any);
     try {
       const repositoryPath = await this.git.clone(url, { parentPath: parentPath!, recursive: options.recursive, ref: options.ref, onProgress: (data) => cloneLoader.setMessage(data) });
       cloneLoader.destroy();

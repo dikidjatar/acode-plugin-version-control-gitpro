@@ -2,7 +2,7 @@
 
 # Acode Plugin Git SCM
 
-![Version](https://img.shields.io/badge/version-2.5.0-blue.svg)
+![Version](https://img.shields.io/badge/version-2.6.1-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Acode](https://img.shields.io/badge/Acode-Compatible-orange.svg)
 
@@ -14,7 +14,7 @@
 
 **Git SCM v2** is a complete rewrite that communicates directly with the native Git binary installed on your system, providing full Git compatibility. This plugin executes real Git commands through Acode's Executor API, ensuring 100% Git compatibility. Unlike JavaScript-based solutions (isomorphic-git), this plugin communicates directly with your system Git installation for full compatibility and optimal performance.
 
-# Screenshoots
+## Screenshoots
 
 <div align="center" style="display: flex; overflow-x: auto; gap: 10px; padding: 10px;">
   <img src="https://raw.githubusercontent.com/dikidjatar/acode-plugin-version-control-gitpro/refs/heads/main/screenshot/1.jpg" alt="Source Control" width="300"/>

@@ -127,9 +127,9 @@ function buildCommand(
   return finalCommand;
 }
 
-export function getExecutor(): Acode.Executor {
+export function getExecutor(): Executor {
   if (typeof Executor.BackgroundExecutor === 'object') {
-    return Executor.BackgroundExecutor as Acode.Executor;
+    return Executor.BackgroundExecutor as Executor;
   }
 
   return Executor;
@@ -141,38 +141,6 @@ function getExecutorType(): 'BackgroundExecutor' | 'Executor' {
   }
 
   return 'Executor';
-}
-
-/**
- * Use nativeStart to fix invalid output in git due to trimmed output in Acode, causing parser to fail
- * @see https://github.com/Acode-Foundation/Acode/tree/main/src/plugins/terminal/Executor.js#L37
- */
-async function nativeStart(command: string, onData: (type: string, data: string) => void, alpine?: boolean): Promise<string> {
-  const executorType = getExecutorType();
-
-  return new Promise<string>((resolve, reject) => {
-    let first = true;
-    cordova.exec(async (message: string) => {
-      if (first) {
-        first = false;
-        await new Promise(resolve => setTimeout(resolve, 100));
-        resolve(message);
-      } else {
-        const match = message.match(/^([^:]+):(.*)$/);
-        if (match) {
-          const prefix = match[1];
-          const message = match[2]; // Don't trim
-          onData(prefix, message);
-        } else {
-          onData('unknown', message);
-        }
-      }
-    },
-      reject,
-      executorType,
-      'start',
-      [command, String(alpine)]);
-  });
 }
 
 class AcodeProcess implements Process {
@@ -236,7 +204,7 @@ class AcodeProcess implements Process {
 
       const command = buildCommand(this.command, this.args, this.options);
 
-      this._pid = await nativeStart(
+      this._pid = await getExecutor().start(
         command,
         (type: string, data: string) => {
           // Filter out proot warnings

@@ -19,6 +19,7 @@ interface FileTreeOptions {
 
 interface FileTree {
   readonly options: FileTreeOptions;
+  readonly childTrees?: Map<string, FileTree>;
   findElement(url: string): HTMLElement | null;
 }
 
@@ -62,10 +63,26 @@ class RootElementCallbackManager {
     this.originalOnExpandedChange = this.fileTree?.options.onExpandedChange;
 
     if (this.fileTree) {
-      this.fileTree.options.onExpandedChange = (folderUrl: string, isExpanded: boolean) => {
+      const newOnExpandedChange = (folderUrl: string, isExpanded: boolean) => {
         this.originalOnExpandedChange?.(folderUrl, isExpanded);
         onExpandedChange(folderUrl, isExpanded);
-      }
+      };
+
+      const patchTree = (tree: FileTree | undefined) => {
+        if (!tree) {
+          return;
+        }
+
+        tree.options.onExpandedChange = newOnExpandedChange;
+
+        if (tree.childTrees instanceof Map) {
+          for (const childTree of tree.childTrees.values()) {
+            patchTree(childTree);
+          }
+        }
+      };
+
+      patchTree(this.fileTree);
     }
 
     this.isPatched = true;
@@ -78,7 +95,21 @@ class RootElementCallbackManager {
 
     this.root.ontoggle = this.originalOntoggle as RootOntoggle;
     if (this.fileTree) {
-      this.fileTree.options.onExpandedChange = this.originalOnExpandedChange;
+      const restoreTree = (tree: FileTree | undefined) => {
+        if (!tree) {
+          return;
+        }
+
+        tree.options.onExpandedChange = this.originalOnExpandedChange;
+
+        if (tree.childTrees instanceof Map) {
+          for (const childTree of tree.childTrees.values()) {
+            restoreTree(childTree);
+          }
+        }
+      };
+
+      restoreTree(this.fileTree);
       this.fileTree = undefined;
     }
     this.isPatched = false;
@@ -126,6 +157,7 @@ class FileTreeElementManager {
 
 function applyDecoration(element: HTMLElement): void {
   const url = element.dataset.url;
+  const type = element.dataset.type;
 
   if (!url) {
     return;
@@ -140,20 +172,27 @@ function applyDecoration(element: HTMLElement): void {
   }
 
   if (decoration.propagate !== false) {
-    renderDecoration(element, decoration);
+    renderDecoration(element, decoration, type);
   }
 }
 
-function renderDecoration(element: HTMLElement, decoration: FileDecoration): void {
+function renderDecoration(
+  element: HTMLElement,
+  decoration: FileDecoration,
+  type: 'file' | 'dir' | string | undefined
+): void {
   const text = element.querySelector('.text') as HTMLElement;
   let badge = element.querySelector('.badge') as HTMLElement | null;
 
-  if (decoration.badge) {
+  const isDirWithColor = type === 'dir' && !!decoration.color;
+
+  if (!isDirWithColor && !decoration.badge) {
+    badge?.remove();
+  } else {
     if (!badge) {
       badge = tag('span', {
         className: 'badge',
         style: {
-          fontSize: '1em',
           height: '30px',
           minWidth: '30px',
           display: 'flex',
@@ -161,21 +200,34 @@ function renderDecoration(element: HTMLElement, decoration: FileDecoration): voi
           alignItems: 'center'
         }
       });
-      if (text.nextSibling) {
-        element.insertBefore(badge, text.nextSibling);
-      } else {
-        element.appendChild(badge);
-      }
+      text.nextSibling
+        ? element.insertBefore(badge, text.nextSibling)
+        : element.appendChild(badge);
     }
-    badge.textContent = decoration.badge;
-  } else if (badge) {
-    badge.remove();
-    badge = null;
+
+    badge.textContent = '';
+
+    if (isDirWithColor) {
+      badge.appendChild(tag('span', {
+        className: 'custom-dot',
+        style: {
+          width: '7px',
+          height: '7px',
+          borderRadius: '50%',
+          backgroundColor: decoration.color,
+          opacity: '0.5'
+        }
+      }));
+    } else if (decoration.badge) {
+      badge.textContent = decoration.badge!;
+      badge.style.fontSize = '1em';
+    }
   }
 
   const color = decoration.color || 'var(--primary-text-color)';
   text.style.color = color;
-  if (badge) {
+
+  if (badge && decoration.badge) {
     badge.style.color = color;
   }
 }

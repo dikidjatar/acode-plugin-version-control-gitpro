@@ -87,10 +87,21 @@ interface Window {
   }
 }
 
+interface Cordova {
+  exec: Function;
+}
+
+interface Terminal {
+  isInstalled(): Promise<boolean>;
+}
+
 interface SDCard {
   watchFile(src: string, listener: () => void): { unwatch: () => void };
 }
 
+declare const Terminal: Terminal;
+declare const strings: { [key: string]: string }
+declare const app: HTMLElement;
 declare var sdcard: SDCard;
 
 declare module 'diff' {

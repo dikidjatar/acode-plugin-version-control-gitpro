@@ -1,5 +1,6 @@
 import { debounce, throttle } from "../base/decorators";
 import { Disposable, IDisposable } from "../base/disposable";
+import { UnsupportedError } from "../base/errors";
 import { uriToPath } from "../base/uri";
 import { LogOutputChannel } from "./logger";
 import { Model, ModelChangeEvent } from "./model";
@@ -185,7 +186,7 @@ export class GitFileSystemProvider implements Acode.FileSystem {
   constructor(private url: string, private fs: GitFileSystem) { }
 
   lsDir(): Promise<Acode.File[]> {
-    throw new Error("Method not implemented.");
+    throw new UnsupportedError("GitFileSystemProvider.lsDir is not supported.");
   }
 
   readFile(): Promise<ArrayBuffer>;
@@ -204,27 +205,27 @@ export class GitFileSystemProvider implements Acode.FileSystem {
   }
 
   async createFile(name: string, content?: string): Promise<string> {
-    throw new Error("Method not implemented.");
+    throw new UnsupportedError("Method not implemented.");
   }
 
   createDirectory(name: string): Promise<string> {
-    throw new Error("Method not implemented.");
+    throw new UnsupportedError("GitFileSystemProvider.createDirectory is not supported.");
   }
 
   delete(): Promise<void> {
-    throw new Error("Method not implemented.");
+    throw new UnsupportedError("GitFileSystemProvider.delete is not supported.");
   }
 
   copyTo(destination: string): Promise<string> {
-    throw new Error("Method not implemented.");
+    throw new UnsupportedError("GitFileSystemProvider.copyTo is not supported.");
   }
 
   moveTo(destination: string): Promise<string> {
-    throw new Error("Method not implemented.");
+    throw new UnsupportedError("GitFileSystemProvider.moveTo is not supported.");
   }
 
   renameTo(newName: string): Promise<string> {
-    throw new Error("Method not implemented.");
+    throw new UnsupportedError("GitFileSystemProvider.renameTo is not supported.");
   }
 
   async exists(): Promise<boolean> {

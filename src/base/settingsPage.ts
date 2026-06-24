@@ -173,7 +173,7 @@ export class SettingsPage {
   }
 
   setTitle(title: string): void {
-    this._page.setTitle(title);
+    (this._page as any).setTitle(title);
   }
 
   search(key: string): HTMLElement[] {
