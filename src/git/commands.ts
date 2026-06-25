@@ -3,7 +3,7 @@ import { Disposable, IDisposable } from "../base/disposable";
 import { toFileUrl, uriToPath } from "../base/uri";
 import { SourceControl, SourceControlResourceState } from "../scm/api/sourceControl";
 import { ApiRepository } from "./api/api1";
-import { Branch, CommitOptions, ForcePushMode, GitErrorCodes, Ref, RefType, Remote, RemoteSourcePublisher, Status } from "./api/git";
+import { Branch, Commit, CommitOptions, ForcePushMode, GitErrorCodes, Ref, RefType, Remote, RemoteSourcePublisher, Status } from "./api/git";
 import { item, showDialogMessage } from "./dialog";
 import { UnifiedDiff } from "./diff";
 import { Git, GitError, Stash, Worktree } from "./git";
@@ -11,6 +11,7 @@ import { getInputHintResult, HintItem, InputHint, showInputHints } from "./hints
 import { LogOutputChannel } from "./logger";
 import { Model } from "./model";
 import { Repository, Resource, ResourceGroupType } from "./repository";
+import { formatCommitDetails } from "./commitDetails";
 import { toGitUri } from "./uri";
 import { coalesce, fromNow, getModeForFile, grep, isDescendant, pathEquals, toFullPath } from "./utils";
 
@@ -342,6 +343,38 @@ class RepositoryItem implements HintItem {
   constructor(public readonly path: string) { }
 }
 
+class CommitHistoryItem implements HintItem {
+
+  get label(): string {
+    return this.subject || this.shortHash;
+  }
+
+  get icon(): string {
+    return 'vscode-codicons_git_commit';
+  }
+
+  get description(): string {
+    return `${this.shortHash} • ${this.commit.commitDate ? fromNow(this.commit.commitDate, true, true) : 'No Date'}`;
+  }
+
+  get detail(): string | undefined {
+    return this.commit.authorName;
+  }
+
+  get shortHash(): string {
+    return this.commit.hash.substring(0, this.shortCommitLength);
+  }
+
+  private get subject(): string {
+    return this.commit.message.split(/\r?\n/)[0]?.trim() || '';
+  }
+
+  constructor(
+    readonly commit: Commit,
+    private readonly shortCommitLength: number
+  ) { }
+}
+
 class StashItem implements HintItem {
 
   get label(): string { return `#${this.stash.index}: ${this.stash.description}`; }
@@ -366,6 +399,21 @@ function sanitizeBranchName(name: string, whitespaceChar: string): string {
 function sanitizeRemoteName(name: string) {
   name = name.trim();
   return name && name.replace(/^\.|\/\.|\.\.|~|\^|:|\/$|\.lock$|\.lock\/|\\|\*|\s|^\s*$|\.$|\[|\]$/g, '-');
+}
+
+async function copyText(value: string): Promise<void> {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+
+  const textarea = tag('textarea', { value });
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand('copy');
+  textarea.remove();
 }
 
 enum PushType {
@@ -685,6 +733,66 @@ export class CommandCenter {
     await repository.refresh();
   }
 
+  @command('Show Commit', { repository: true })
+  async showCommit(repository: Repository | null, commit: Commit): Promise<void> {
+    
+    if(!commit && repository) {
+      const gitConfig = config.get('vcgit')!;
+      const shortCommitLength = gitConfig.commitShortHashLength;
+      const commits = await repository.log({ maxEntries: 100, shortStats: true, silent: true });
+
+      if (commits.length === 0) {
+        window.toast('No commit history found', 2000);
+        return;
+      }
+
+      const commitItem = await showInputHints(
+        commits.map(commit => new CommitHistoryItem(commit, shortCommitLength)),
+        { placeholder: 'Select a commit to view' }
+      );
+
+      if (!commitItem) {
+        return;
+      }
+
+      commit = commitItem.commit;
+    }
+    
+    const box = DialogBox('Commit Details', formatCommitDetails(commit), 'OK', '');
+    box.ok(() => box.hide());
+  }
+
+  @command('History', { repository: true })
+  async history(repository: Repository): Promise<void> {
+    const gitConfig = config.get('vcgit')!;
+    const shortCommitLength = gitConfig.commitShortHashLength;
+    const commits = await repository.log({ maxEntries: 100, shortStats: true, silent: true });
+
+    if (commits.length === 0) {
+      window.toast('No commit history found', 3000);
+      return;
+    }
+
+    const commitItem = await showInputHints(
+      commits.map(commit => new CommitHistoryItem(commit, shortCommitLength)),
+      { placeholder: 'Select a commit to view' }
+    );
+
+    if (!commitItem) {
+      return;
+    }
+
+    const showDetails = 'Show Details';
+    const copyHash = 'Copy Hash';
+    const action = await select('', [showDetails, copyHash]);
+
+    if (action === showDetails) {
+      await this.showCommit(null, commitItem.commit);
+    } else if (action === copyHash) {
+      await copyText(commitItem.commit.hash);
+      window.toast('Commit hash copied', 3000);
+    }
+  }
   @command('Open Repository', { repository: false })
   async openRepository(path?: string): Promise<void> {
     if (!path) {
