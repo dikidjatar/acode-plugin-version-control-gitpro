@@ -1,5 +1,9 @@
 # ChangeLog
 
+## [2.7.0] - 2026-26-06
+
+- Added commit history feature with detailed commit view and resource management by [@UnschooledGamer](https://github.com/UnschooledGamer)
+
 ## [2.6.1] - 2026-21-06
 
 - Add 'add to .gitignore' scm menu for CodeMirror

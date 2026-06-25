@@ -3,7 +3,7 @@
   "id": "acode.plugin.version.control.gitpro",
   "name": "Git SCM",
   "main": "main.js",
-  "version": "2.6.1",
+  "version": "2.7.0",
   "repository": "https://github.com/dikidjatar/acode-plugin-version-control-gitpro.git",
   "icon": "icon.png",
   "files": [
@@ -32,5 +32,17 @@
     "name": "Diki Djatar",
     "email": "dikidjatar@gmail.com",
     "github": "dikidjatar"
-  }
+  },
+  "contributors": [
+    {
+      "name": "UnschooledGamer",
+      "github": "UnschooledGamer",
+      "role": "contributor"
+    },
+    {
+      "name": "Victor Elijha",
+      "github": "Victozee26",
+      "role": "contributor"
+    }
+  ]
 }
