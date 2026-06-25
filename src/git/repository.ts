@@ -348,6 +348,35 @@ class ResourceCommandResolver {
   }
 }
 
+class CommitResource implements SourceControlResourceState {
+  readonly contextValue = 'commit';
+  readonly decorations: SourceControlResourceDecorations = { icon: 'vscode-codicons_git_commit' };
+  readonly resourceUri: string;
+  readonly command: SourceControlCommandAction;
+
+  constructor(
+    readonly commit: Commit,
+    index: number,
+    shortCommitLength: number
+  ) {
+    this.resourceUri = toCommitResourceUri(commit, index, shortCommitLength);
+    this.command = { id: 'git.showCommit', title: 'Show Commit', arguments: [commit] };
+  }
+}
+
+function toCommitResourceUri(commit: Commit, index: number, shortCommitLength: number): string {
+  const subject = commit.message.split(/\r?\n/)[0]?.trim() || commit.hash;
+  const params = new URLSearchParams({
+    hash: commit.hash,
+    shortHash: commit.hash.substring(0, shortCommitLength),
+    subject,
+    author: commit.authorName || '',
+    date: commit.commitDate ? commit.commitDate.toISOString() : ''
+  });
+
+  return `git-commit://${index.toString().padStart(5, '0')}/${commit.hash}?${params.toString()}`;
+}
+
 interface ModifiedOrOriginal {
   modified?: string | undefined;
   original?: string | undefined;
@@ -355,6 +384,10 @@ interface ModifiedOrOriginal {
 
 export interface GitResourceGroup extends SourceControlResourceGroup {
   resourceStates: Resource[];
+}
+
+interface GitCommitResourceGroup extends SourceControlResourceGroup {
+  resourceStates: CommitResource[];
 }
 
 interface GitResourceGroups {
@@ -540,6 +573,11 @@ export class Repository implements IDisposable {
     return this._untrackedGroup as GitResourceGroup;
   }
 
+  private _commitsGroup: SourceControlResourceGroup;
+  get commitsGroup(): GitCommitResourceGroup {
+    return this._commitsGroup as GitCommitResourceGroup;
+  }
+
   private _EMPTY_TREE: string | undefined;
 
   private _HEAD: Branch | undefined;
@@ -623,6 +661,7 @@ export class Repository implements IDisposable {
     this._indexGroup.resourceStates = [];
     this._workingTreeGroup.resourceStates = [];
     this._untrackedGroup.resourceStates = [];
+    this._commitsGroup.resourceStates = [];
     this._sourceControl.count = 0;
   }
 
@@ -702,6 +741,7 @@ export class Repository implements IDisposable {
     this._indexGroup = this._sourceControl.createResourceGroup('index', 'Staged Changes');
     this._workingTreeGroup = this._sourceControl.createResourceGroup('workingTree', 'Changes');
     this._untrackedGroup = this._sourceControl.createResourceGroup('untracked', 'Untracked Changes');
+    this._commitsGroup = this._sourceControl.createResourceGroup('commits', 'Commits');
 
     const updateIndexGroupVisibility = () => {
       const gitConfig = config.get('vcgit')!;
@@ -728,11 +768,13 @@ export class Repository implements IDisposable {
 
     this.mergeGroup.hideWhenEmpty = true;
     this.untrackedGroup.hideWhenEmpty = true;
+    this.commitsGroup.hideWhenEmpty = true;
 
     this.disposables.push(this._mergeGroup);
     this.disposables.push(this._indexGroup);
     this.disposables.push(this._workingTreeGroup);
     this.disposables.push(this._untrackedGroup);
+    this.disposables.push(this._commitsGroup);
 
     this.disposables.push(new AutoFetcher(this));
 
@@ -1677,11 +1719,12 @@ export class Repository implements IDisposable {
       this._updateResourceGroupsState(optimisticResourcesGroups);
     }
 
-    const [HEAD, remotes, submodules, worktrees, rebaseCommit, mergeInProgress] = await Promise.all([
+    const [HEAD, remotes, submodules, worktrees, commits, rebaseCommit, mergeInProgress] = await Promise.all([
       this.repository.getHEADRef(),
       this.repository.getRemotes(),
       this.repository.getSubmodules(),
       this.repository.getWorktrees(),
+      this.getRecentCommits(),
       this.getRebaseCommit(),
       this.isMergeInProgress()
     ]);
@@ -1690,6 +1733,9 @@ export class Repository implements IDisposable {
     this._remotes = remotes;
     this._submodules = submodules;
     this._worktrees = worktrees!;
+    const gitConfig = config.get('vcgit')!;
+    const shortCommitLength = gitConfig.commitShortHashLength ?? 7;
+    this.commitsGroup.resourceStates = commits.map((commit, index) => new CommitResource(commit, index, shortCommitLength));
     this.rebaseCommit = rebaseCommit;
     this.mergeInProgress = mergeInProgress;
 
@@ -1713,6 +1759,14 @@ export class Repository implements IDisposable {
     }
   }
 
+  private async getRecentCommits(): Promise<Commit[]> {
+    try {
+      return await this.repository.log({ maxEntries: 100, shortStats: true });
+    } catch (err: any) {
+      this.logger.warn(`[Repository][getRecentCommits] Unable to read commit history: ${err.message || err}`);
+      return [];
+    }
+  }
   private async getStatus(): Promise<GitResourceGroups> {
     const gitConfig = config.get('vcgit')!;
     const untrackedChanges = gitConfig.untrackedChanges;

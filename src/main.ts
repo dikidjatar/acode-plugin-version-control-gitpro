@@ -508,6 +508,12 @@ function initializeMenus(logger: LogOutputChannel): void {
 			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git'
 		},
 		{
+			command: { id: 'git.history', title: 'History' },
+			group: '2_main@8',
+			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git',
+			enablement: () => !App.getContext<boolean>('git.operationInProgress')
+		},
+		{
 			command: { id: 'git.showOutput', title: 'Show Git Output' },
 			group: '3_footer@1',
 			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git'
