@@ -755,7 +755,8 @@ export class Repository implements IDisposable {
     Event.filter(config.onDidChangeConfiguration, (e) =>
       e.affectsConfiguration('vcgit.untrackedChanges') ||
       e.affectsConfiguration('vcgit.ignoreSubmodules') ||
-      e.affectsConfiguration('vcgit.similarityThreshold')
+      e.affectsConfiguration('vcgit.similarityThreshold') ||
+      e.affectsConfiguration('vcgit.showCommitHistoryResourceGroup')
     )(() => this.updateModelState(), this, this.disposables);
 
     const updateInputBoxVisibility = () => {
@@ -1735,7 +1736,7 @@ export class Repository implements IDisposable {
     this._worktrees = worktrees!;
     const gitConfig = config.get('vcgit')!;
     const shortCommitLength = gitConfig.commitShortHashLength ?? 7;
-    this.commitsGroup.resourceStates = commits.map((commit, index) => new CommitResource(commit, index, shortCommitLength));
+    this.commitsGroup.resourceStates = commits?.map((commit, index) => new CommitResource(commit, index, shortCommitLength)) ?? [];
     this.rebaseCommit = rebaseCommit;
     this.mergeInProgress = mergeInProgress;
 
@@ -1759,8 +1760,13 @@ export class Repository implements IDisposable {
     }
   }
 
-  private async getRecentCommits(): Promise<Commit[]> {
+  private async getRecentCommits(): Promise<Commit[] | undefined> {
     try {
+      const gitConfig = config.get('vcgit');
+      const showCommitHistoryResourceGroup = gitConfig?.showCommitHistoryResourceGroup == true;
+      if (!showCommitHistoryResourceGroup) {
+        return undefined;
+      }
       return await this.repository.log({ maxEntries: 100, shortStats: true });
     } catch (err: any) {
       this.logger.warn(`[Repository][getRecentCommits] Unable to read commit history: ${err.message || err}`);

@@ -91,7 +91,8 @@ const defaultGitConfig: IGitConfig = {
 	refreshOnSaveFile: false,
 	optimisticUpdate: true,
 	detectWorktrees: false,
-	detectWorktreesLimit: 20
+	detectWorktreesLimit: 20,
+	showCommitHistoryResourceGroup: true
 }
 
 async function destroy() {
@@ -1396,6 +1397,12 @@ function gitPluginSettings(): Acode.PluginSettings {
 				info: 'Controls the limit of Git worktrees detected.',
 				prompt: 'Detect Worktrees Limit',
 				promptType: 'number'
+			},
+			{
+				key: 'showCommitHistoryResourceGroup',
+				checkbox: configs.showCommitHistoryResourceGroup,
+				text: 'Git: Show Commit History Resource Group',
+				info: 'Show the Commit History resource group.',
 			}
 		],
 		cb(key: string, value: unknown) {
