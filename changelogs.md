@@ -1,5 +1,10 @@
 # ChangeLog
 
+## [2.7.1] - 2026-26-06
+
+- Added new setting: `showCommitHistoryResourceGroup` default=true
+- Fixed errors like: `find: .: Permission denied`
+
 ## [2.7.0] - 2026-26-06
 
 - Added commit history feature with detailed commit view and resource management by [@UnschooledGamer](https://github.com/UnschooledGamer)
