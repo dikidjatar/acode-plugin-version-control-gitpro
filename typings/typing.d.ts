@@ -72,6 +72,7 @@ interface IGitConfig {
   readonly optimisticUpdate: boolean;
   readonly detectWorktrees: boolean;
   readonly detectWorktreesLimit: number;
+  readonly showCommitHistoryResourceGroup: boolean;
 }
 
 declare namespace Acode {
