@@ -17,19 +17,9 @@ apk add git
 #### 2. Install Plugin
 
 1. Open Acode → Settings → Plugins
-2. Search "Git SCM" or "Version Control GitPro"
+2. Search "Git SCM"
 3. Install plugin
 4. Restart
-
-#### 4. Optional: Install inotify-tools
-
-For automatic file change detection:
-
-```bash
-apk add inotify-tools
-```
-
-Enable in plugin settings `GIt: Use inotifywait` and restart
 
 ## Getting Started
 
@@ -187,13 +177,13 @@ const scm = acode.require('scm');
 
 ```javascript
 const sourceControl = scm.createSourceControl(
-  'my-scm-id',      // Unique ID
-  'My SCM Label'    // Display label,
-  '/public'         // Root URI
+  'my-scm-id',
+  'My SCM Label',
+  '/public'
 );
 
 // Set icon
-sourceControl.icon = 'git-branch';
+sourceControl.icon = 'scm';
 
 // Set root URI
 sourceControl.rootUri = '/path/to/repo';
@@ -222,19 +212,15 @@ changes.resourceStates = [
   {
     resourceUri: '/path/to/file1.js',
     decorations: {
-      letter: 'M',
-      color: '#ffa500',
       strikeThrough: false,
-      icon: 'modified'
+      icon: 'file'
+    },
+    command: {
+      id: 'my.command',
+      title: 'My Command',
+      arguments: ['arg1']
     }
   },
-  {
-    resourceUri: '/path/to/file2.js',
-    decorations: {
-      letter: 'A',
-      color: '#00ff00'
-    }
-  }
 ];
 ```
 
