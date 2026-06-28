@@ -140,7 +140,8 @@ export class AskPass implements IIPCHandler {
   constructor(
     private rootPath: string,
     ipc: IIPCServer | undefined,
-    private logger: LogOutputChannel
+    private logger: LogOutputChannel,
+    private ctx?: Acode.PluginContext | null
   ) {
     if (ipc) {
       this.disposable = ipc.registerHandler('askpass', this);
@@ -213,34 +214,107 @@ export class AskPass implements IIPCHandler {
     const uri = new URL(host);
     const authority = uri.host;
     const password = /password/i.test(request);
-    const cached = this.cache.get(authority);
+    const isSecureStoreAvailable = !!(this.ctx && typeof this.ctx.getSecret === 'function' && typeof this.ctx.setSecret === 'function');
 
-    if (cached && password) {
-      this.cache.delete(authority);
-      return cached.password;
-    }
+    if (password) {
+      let cached = this.cache.get(authority);
 
-    if (!password) {
+      if (cached && cached.password) {
+        this.cache.delete(authority);
+        return cached.password;
+      }
+
+      if (isSecureStoreAvailable) {
+        try {
+          const storedUsername = await this.ctx!.getSecret(`${authority}:username`, '');
+          const storedPassword = await this.ctx!.getSecret(`${authority}:password`, '');
+          if (storedUsername && storedPassword) {
+            this.cache.delete(authority);
+            return storedPassword;
+          }
+        } catch (err) {
+          this.logger.error(`[Askpass][handleAskpass] error fetching password from secure store: ${err}`);
+        }
+      }
+
+      const options = { placeholder: request, required: true };
+      const enteredPassword = await prompt(`Git: ${host}`, '', 'text', options);
+
+      if (enteredPassword) {
+        const usernameVal = cached?.username || uri.username || '';
+        if (usernameVal && isSecureStoreAvailable) {
+          try {
+            await this.ctx!.setSecret(`${authority}:username`, usernameVal);
+            await this.ctx!.setSecret(`${authority}:password`, enteredPassword);
+          } catch (err) {
+            this.logger.error(`[Askpass][handleAskpass] error saving password to secure store: ${err}`);
+          }
+        }
+        return enteredPassword;
+      }
+
+      return '';
+    } else {
+      let cached = this.cache.get(authority);
+
+      if (!cached && isSecureStoreAvailable) {
+        try {
+          const storedUsername = await this.ctx!.getSecret(`${authority}:username`, '');
+          const storedPassword = await this.ctx!.getSecret(`${authority}:password`, '');
+          if (storedUsername && storedPassword) {
+            cached = { username: storedUsername, password: storedPassword };
+            this.cache.set(authority, cached);
+            setTimeout(() => this.cache.delete(authority), 60_000);
+          }
+        } catch (err) {
+          this.logger.error(`[Askpass][handleAskpass] error fetching username from secure store: ${err}`);
+        }
+      }
+
+      if (cached) {
+        return cached.username;
+      }
+
       for (const credentialsProvider of this.credentialsProviders) {
         try {
           const credentials = await credentialsProvider.getCredentials(host);
           if (credentials) {
             this.cache.set(authority, credentials);
             setTimeout(() => this.cache.delete(authority), 60_000);
+            if (isSecureStoreAvailable) {
+              await this.ctx!.setSecret(`${authority}:username`, credentials.username);
+              await this.ctx!.setSecret(`${authority}:password`, credentials.password);
+            }
             return credentials.username;
           }
         } catch { }
       }
+
+      const options = { placeholder: request, required: true };
+      const enteredUsername = await prompt(`Git: ${host}`, '', 'text', options);
+
+      if (enteredUsername) {
+        this.cache.set(authority, { username: enteredUsername, password: '' });
+        return enteredUsername;
+      }
+
+      return '';
     }
+  }
 
-    const options = { placeholder: request, required: true };
-    const result = await prompt(`Git: ${host}`, '', 'text', options);
-
-    if (result) {
-      return result;
+  async clearCredentials(host: string): Promise<void> {
+    try {
+      const uri = new URL(host);
+      const authority = uri.host;
+      this.cache.delete(authority);
+      const isSecureStoreAvailable = !!(this.ctx && typeof this.ctx.getSecret === 'function' && typeof this.ctx.setSecret === 'function');
+      if (isSecureStoreAvailable) {
+        await this.ctx!.setSecret(`${authority}:username`, '');
+        await this.ctx!.setSecret(`${authority}:password`, '');
+      }
+    } catch (err) {
+      this.logger.error(`[Askpass][clearCredentials] error: ${err}`);
     }
-
-    return '';
   }
 
   async handleSSHAskpass(argv: string[]): Promise<string> {

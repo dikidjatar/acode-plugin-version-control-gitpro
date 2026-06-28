@@ -815,6 +815,10 @@ export class Model implements IRepositoryResolver, IRemoteSourcePublisherRegistr
     return this.akspass.registerCredentialsProvider(provider);
   }
 
+  async clearCredentials(host: string): Promise<void> {
+    await this.akspass.clearCredentials(host);
+  }
+
   registerPushErrorHandler(handler: PushErrorHandler): IDisposable {
     this.pushErrorHandlers.add(handler);
     return Disposable.toDisposable(() => this.pushErrorHandlers.delete(handler));

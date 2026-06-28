@@ -118,7 +118,7 @@ async function findShell(logger?: LogOutputChannel): Promise<string | undefined>
 	return result;
 }
 
-async function createModel(logger: LogOutputChannel, disposables: IDisposable[]): Promise<Model> {
+async function createModel(logger: LogOutputChannel, disposables: IDisposable[], ctx?: Acode.PluginContext | null): Promise<Model> {
 	const shell = await findShell(logger);
 	const info = await findGit();
 
@@ -134,7 +134,7 @@ async function createModel(logger: LogOutputChannel, disposables: IDisposable[])
 		logger.error(`[main] Failed to create git IPC: ${err}`);
 	}
 
-	const askpass = new AskPass(rootPath, ipcServer, logger);
+	const askpass = new AskPass(rootPath, ipcServer, logger, ctx);
 	const gitEditor = new GitEditor(rootPath, ipcServer, logger);
 	await askpass.setupScripts();
 	await gitEditor.setupScript();
@@ -278,12 +278,12 @@ async function initialize(baseUrl: string, options: Acode.PluginInitOptions): Pr
 		const onConfigChange = Event.filter(config.onDidChangeConfiguration, e => e.affectsConfiguration('vcgit'));
 		const onEnabled = Event.filter(onConfigChange, () => config.get('vcgit')?.enabled === true);
 		const result = new GitPluginImpl();
-		Event.toPromise(onEnabled).then(async () => result.model = await createModel(logger, disposables));
+		Event.toPromise(onEnabled).then(async () => result.model = await createModel(logger, disposables, options.ctx));
 		return result;
 	}
 
 	try {
-		const model = await createModel(logger, disposables);
+		const model = await createModel(logger, disposables, options.ctx);
 		return new GitPluginImpl(model);
 	} catch (err: any) {
 		console.warn(err.message);

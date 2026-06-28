@@ -3080,6 +3080,9 @@ export class CommandCenter {
             message = match
               ? `Failed to authenticate to git remote: ${match[1]}`
               : 'Failed to authenticate to git remote.';
+            if (match && match[1]) {
+              this.model.clearCredentials(match[1]);
+            }
             break;
           }
           case GitErrorCodes.NoUserNameConfigured:
