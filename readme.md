@@ -2,7 +2,7 @@
 
 # Acode Plugin Git SCM
 
-![Version](https://img.shields.io/badge/version-2.6.1-blue.svg)
+![Version](https://img.shields.io/badge/version-2.7.1-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Acode](https://img.shields.io/badge/Acode-Compatible-orange.svg)
 

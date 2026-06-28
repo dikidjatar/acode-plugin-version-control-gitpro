@@ -3,6 +3,7 @@ import { decorationService } from "../base/decorationService";
 import { Disposable, DisposableMap, DisposableStore, IDisposable } from "../base/disposable";
 import { Emitter, Event } from "../base/event";
 import { CollapsableList, IListContextMenuEvent, IListDelegate, IListMouseEvent, IListRenderer } from "../base/list";
+import { fromNow } from "../git/utils";
 import { SCMMenuItemAction } from "./menus";
 import { IResourceNode, ResourceTree } from "./resourceTree";
 import { RepositoryRenderer } from "./scmRepositoryRenderer";
@@ -209,6 +210,31 @@ class ResourceGroupRenderer implements IListRenderer<ISCMResourceGroup, Resource
   }
 }
 
+interface CommitResourceInfo {
+  readonly shortHash: string;
+  readonly subject: string;
+  readonly author: string;
+  readonly date: string;
+}
+
+function parseCommitResourceUri(uri: string): CommitResourceInfo | undefined {
+  if (!uri.startsWith('git-commit://')) {
+    return undefined;
+  }
+
+  const queryIndex = uri.indexOf('?');
+  if (queryIndex === -1) {
+    return undefined;
+  }
+
+  const params = new URLSearchParams(uri.substring(queryIndex + 1));
+  return {
+    shortHash: params.get('shortHash') || '',
+    subject: params.get('subject') || params.get('hash') || '',
+    author: params.get('author') || '',
+    date: params.get('date') || ''
+  };
+}
 interface ResourceTemplate {
   readonly container: HTMLElement;
   readonly name: HTMLElement;
@@ -243,6 +269,7 @@ class ResourceRenderer implements IListRenderer<ISCMResource | IResourceNode<ISC
   renderElement(resourceOrFolder: ISCMResource | IResourceNode<ISCMResource, ISCMResourceGroup>, index: number, templateData: ResourceTemplate): void {
     const isNode = ResourceTree.isResourceNode(resourceOrFolder);
     const uri = isNode ? resourceOrFolder.uri : resourceOrFolder.sourceUri;
+    const commitInfo = !isNode && resourceOrFolder.contextValue === 'commit' ? parseCommitResourceUri(uri) : undefined;
     const fileName = isNode ? resourceOrFolder.name : (uri.split('/').pop() || uri);
 
     let depth = 0;
@@ -259,14 +286,56 @@ class ResourceRenderer implements IListRenderer<ISCMResource | IResourceNode<ISC
     }
 
     templateData.container.classList.add('resource');
+    templateData.container.classList.toggle('commit-resource', !!commitInfo);
     templateData.container.style.paddingLeft = `${depth * 20}px`;
+    const commitMeta = templateData.container.querySelector('.commit-meta') as HTMLElement | null;
+    const commitHash = commitMeta?.querySelector('.hash') as HTMLElement | null;
+    const commitAuthor = commitMeta?.querySelector('.author') as HTMLElement | null;
+    const commitTime = commitMeta?.querySelector('.time') as HTMLElement | null;
+    templateData.name.style.order = '';
+    templateData.letter.style.order = '';
+    templateData.icon.style.order = '';
+    templateData.letter.textContent = '';
+    templateData.letter.removeAttribute('style');
+    templateData.name.classList.remove('strike-through');
+    templateData.name.classList.remove('commit-message');
+    if (!commitInfo && commitMeta) {
+      commitMeta.remove();
+    }
 
-    if (isNode) {
+    if (commitInfo) {
+      const commitDate = Date.parse(commitInfo.date);
+      templateData.icon.className = 'icon vscode-codicons_git_commit';
+      templateData.name.classList.add('commit-message');
+      templateData.name.style.order = '1';
+      templateData.letter.style.order = '3';
+      templateData.icon.style.order = '0';
+
+      let meta = commitMeta;
+      if (!meta) {
+        meta = tag('div', { className: 'commit-meta' });
+        meta.appendChild(tag('span', { className: 'hash' }));
+        meta.appendChild(tag('span', { className: 'author' }));
+        meta.appendChild(tag('span', { className: 'time' }));
+        templateData.container.insertBefore(meta, templateData.letter);
+      }
+
+      const hash = meta.querySelector('.hash') as HTMLElement;
+      const author = meta.querySelector('.author') as HTMLElement;
+      const time = meta.querySelector('.time') as HTMLElement;
+      templateData.name.textContent = commitInfo.subject;
+      hash.textContent = commitInfo.shortHash ? commitInfo.shortHash.slice(0, 7) : '';
+      author.textContent = commitInfo.author;
+      time.textContent = Number.isNaN(commitDate) ? '' : fromNow(commitDate);
+      templateData.container.title = [commitInfo.author, commitInfo.date].filter(Boolean).join(' • ');
+    } else if (isNode) {
       templateData.icon.className = 'icon folder';
       templateData.name.textContent = fileName;
+      templateData.container.removeAttribute('title');
     } else {
       templateData.name.textContent = fileName;
       templateData.icon.className = resourceOrFolder.decorations.icon || '';
+      templateData.container.removeAttribute('title');
 
       if (resourceOrFolder.decorations.strikeThrough) {
         templateData.name.classList.add('strike-through');
@@ -283,8 +352,8 @@ class ResourceRenderer implements IListRenderer<ISCMResource | IResourceNode<ISC
       }
     }
 
-    templateData.container.dataset.type = isNode ? 'dir' : 'file';
-    templateData.container.dataset.name = fileName;
+    templateData.container.dataset.type = commitInfo ? 'commit' : isNode ? 'dir' : 'file';
+    templateData.container.dataset.name = commitInfo ? commitInfo.subject : fileName;
   }
 
   disposeElement(element: ISCMResource | IResourceNode<ISCMResource, ISCMResourceGroup>, index: number, template: ResourceTemplate): void {
@@ -307,6 +376,8 @@ class ListDelegate implements IListDelegate<TreeElement> {
       return ActionButtonRenderer.DEFAULT_HEIGHT + 8;
     } else if (isSCMSeparator(element)) {
       return 5;
+    } else if (isSCMResource(element) && element.contextValue === 'commit') {
+      return 48;
     } else {
       return 34;
     }
@@ -439,6 +510,7 @@ export class SCMView extends Disposable.Disposable implements IView {
   private inputRenderer!: InputRenderer;
   private actionButtonRenderer!: ActionButtonRenderer;
   private collapsedResourceGroups = new Set<ISCMResourceGroup>();
+  private initializedDefaultCollapsedResourceGroups = new WeakSet<ISCMResourceGroup>();
   private expandedNodes = new Set<IResourceNode<ISCMResource, ISCMResourceGroup>>();
 
   private repositoryStates = new Map<ISCMRepository, RepositoryTreeState>();
@@ -557,6 +629,17 @@ export class SCMView extends Disposable.Disposable implements IView {
     }));
   }
 
+  private initializeResourceGroupCollapseState(group: ISCMResourceGroup): void {
+    if (this.initializedDefaultCollapsedResourceGroups.has(group)) {
+      return;
+    }
+
+    if (group.id === 'commits') {
+      this.collapsedResourceGroups.add(group);
+    }
+
+    this.initializedDefaultCollapsedResourceGroups.add(group);
+  }
   private toggleResourceGroup(group: ISCMResourceGroup): void {
     if (this.collapsedResourceGroups.has(group)) {
       this.collapsedResourceGroups.delete(group);
@@ -630,6 +713,7 @@ export class SCMView extends Disposable.Disposable implements IView {
     }
 
     for (const group of resourceGroups) {
+      this.initializeResourceGroupCollapseState(group);
       if (group.resources.length === 0 && group.hideWhenEmpty) {
         continue;
       }

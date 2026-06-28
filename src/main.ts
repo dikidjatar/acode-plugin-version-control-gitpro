@@ -91,7 +91,8 @@ const defaultGitConfig: IGitConfig = {
 	refreshOnSaveFile: false,
 	optimisticUpdate: true,
 	detectWorktrees: false,
-	detectWorktreesLimit: 20
+	detectWorktreesLimit: 20,
+	showCommitHistoryResourceGroup: true
 }
 
 async function destroy() {
@@ -506,6 +507,12 @@ function initializeMenus(logger: LogOutputChannel): void {
 			group: '2_main@7',
 			submenu: true,
 			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git'
+		},
+		{
+			command: { id: 'git.history', title: 'History' },
+			group: '2_main@8',
+			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git',
+			enablement: () => !App.getContext<boolean>('git.operationInProgress')
 		},
 		{
 			command: { id: 'git.showOutput', title: 'Show Git Output' },
@@ -1390,6 +1397,12 @@ function gitPluginSettings(): Acode.PluginSettings {
 				info: 'Controls the limit of Git worktrees detected.',
 				prompt: 'Detect Worktrees Limit',
 				promptType: 'number'
+			},
+			{
+				key: 'showCommitHistoryResourceGroup',
+				checkbox: configs.showCommitHistoryResourceGroup,
+				text: 'Git: Show Commit History Resource Group',
+				info: 'Show the Commit History resource group.',
 			}
 		],
 		cb(key: string, value: unknown) {

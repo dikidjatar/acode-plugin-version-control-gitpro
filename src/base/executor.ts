@@ -135,12 +135,15 @@ export function getExecutor(): Executor {
   return Executor;
 }
 
-function getExecutorType(): 'BackgroundExecutor' | 'Executor' {
-  if (typeof Executor.BackgroundExecutor !== 'undefined') {
-    return 'BackgroundExecutor';
+function filterOutput(type: ExecutorOutputType, data: string): boolean {
+  if (type !== 'stderr') {
+    return false;
   }
 
-  return 'Executor';
+  return (
+    /proot warning: can't sanitize binding/.test(data) ||
+    /find: .: Permission denied/.test(data)
+  );
 }
 
 class AcodeProcess implements Process {
@@ -206,9 +209,9 @@ class AcodeProcess implements Process {
 
       this._pid = await getExecutor().start(
         command,
-        (type: string, data: string) => {
+        (type: ExecutorOutputType, data: string) => {
           // Filter out proot warnings
-          if (type === 'stderr' && data.includes("proot warning: can't sanitize binding")) {
+          if (filterOutput(type, data)) {
             return;
           }
 
