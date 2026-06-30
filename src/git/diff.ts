@@ -7,6 +7,7 @@ import { App } from '../base/app';
 import { UnsupportedError } from '../base/errors';
 import './diff.scss';
 import { getModeForFile } from './utils';
+import { fromGitUri, isGitUri } from './uri';
 
 const EditorFile = acode.require('EditorFile');
 const Url = acode.require('Url');
@@ -47,6 +48,14 @@ function isDiffEditorFile(file: unknown): file is DiffEditorFile {
   return typeof (<DiffEditorFile>file).diff === 'object' &&
     typeof (<DiffEditorFile>file).diff.additions === 'number' &&
     typeof (<DiffEditorFile>file).diff.deletions === 'number'
+}
+
+function toFileUri(uri: string) {
+  if (!isGitUri(uri)) {
+    return uri;
+  }
+
+  return fromGitUri(uri).path;
 }
 
 export class UnifiedDiff {
@@ -122,7 +131,7 @@ export class UnifiedDiff {
 
     // Resolve language support for syntax highlighting
     let languageExt: any = [];
-    const mode = editorLanguages?.getForPath(this.oldUri);
+    const mode = editorLanguages?.getForPath(toFileUri(this.oldUri));
     if (mode && typeof mode.languageExtension === 'function') {
       try {
         languageExt = await Promise.resolve(mode.languageExtension());
