@@ -19,3 +19,23 @@
 .ace_gutter-cell.gh-deleted-gutter {
   background-color: rgba(248, 81, 73, 0.302) !important;
 }
+
+.codemirror-merge-view-container {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+
+  .cm-editor {
+    height: 100% !important;
+    width: 100% !important;
+
+    .cm-scroller {
+      overflow: auto;
+    }
+  }
+}

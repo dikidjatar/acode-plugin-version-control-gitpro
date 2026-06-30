@@ -25,6 +25,22 @@ const zipPlugin = {
   },
 };
 
+// Custom plugin to redirect CodeMirror dependencies to Acode's global acode.require system
+const codemirrorExternalPlugin = {
+  name: "codemirror-external",
+  setup(build) {
+    build.onResolve({ filter: /^@codemirror\/(state|view|language|autocomplete|commands|lint|search)$|^codemirror$/ }, (args) => {
+      return { path: args.path, namespace: "codemirror-external" };
+    });
+    build.onLoad({ filter: /.*/, namespace: "codemirror-external" }, (args) => {
+      return {
+        contents: `module.exports = acode.require('${args.path}');`,
+        loader: "js",
+      };
+    });
+  },
+};
+
 // Base build configuration
 let buildConfig = {
   entryPoints: ["src/main.ts"],
@@ -33,7 +49,7 @@ let buildConfig = {
   logLevel: "info",
   color: true,
   outdir: "dist",
-  plugins: [zipPlugin, sassPlugin()],
+  plugins: [codemirrorExternalPlugin, zipPlugin, sassPlugin()],
   resolveExtensions: ['.ts', '.d.ts']
 };
 
