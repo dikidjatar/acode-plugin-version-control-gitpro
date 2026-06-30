@@ -1,5 +1,11 @@
 # ChangeLog
 
+## [2.8.0] - 2026-07-01
+
+- Added readonly CodeMirror diff support with CodeMirror external dependency handling and merge view styling by [@bajrangCoder](https://github.com/bajrangCoder)
+- Added secure Git credential storage using the Acode plugin context for askpass by [@bajrangCoder](https://github.com/bajrangCoder)
+- Updated project documentation
+
 ## [2.7.1] - 2026-26-06
 
 - Added new setting: `showCommitHistoryResourceGroup` default=true
