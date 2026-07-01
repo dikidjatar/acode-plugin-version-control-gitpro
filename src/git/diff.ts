@@ -179,6 +179,9 @@ export class UnifiedDiff {
         },
       }),
       EditorState.readOnly.of(true),
+      EditorView.contentAttributes.of({
+        inputmode: "none"
+      })
     ];
 
     const editorView = new EditorView({
