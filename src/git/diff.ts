@@ -198,6 +198,7 @@ export class UnifiedDiff {
       render: true,
       isUnsaved: false,
       editable: false,
+      hideQuickTools: true
     });
 
     diffEditorFile.diff = {
