@@ -1077,7 +1077,7 @@ class SCMActionButton implements IDisposable {
       for (let index = 0; index < button.secondaryCommands.length; index++) {
         const commands = button.secondaryCommands[index];
         for (const command of commands) {
-          const action = new SCMMenuItemAction(command.id, command.title, false, true);
+          const action = new SCMMenuItemAction(command.id, command.title, command.icon, false, true);
           actions.push({
             id: action.id,
             title: action.title,

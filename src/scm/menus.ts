@@ -47,6 +47,7 @@ export class SCMMenuItemAction implements ISCMMenuItemAction {
   constructor(
     public readonly id: string,
     public readonly title: string,
+    public readonly icon: string | undefined,
     public readonly submenu: boolean,
     public readonly enabled: boolean
   ) { }
@@ -65,7 +66,7 @@ export class SCMMenuItemAction implements ISCMMenuItemAction {
   }
 }
 
-class Separator implements ISCMMenuItemAction {
+export class Separator implements ISCMMenuItemAction {
 
   readonly id: string = '';
   readonly title: string = '';
@@ -108,7 +109,7 @@ class SCMMenu implements ISCMMenu {
 
     for (const item of sortedItems) {
       const enabled = typeof item.enablement === 'undefined' ? true : item.enablement();
-      const action = new SCMMenuItemAction(item.command.id, item.command.title, item.submenu ?? false, enabled);
+      const action = new SCMMenuItemAction(item.command.id, item.command.title, item.command.icon, item.submenu ?? false, enabled);
 
       const { group, isPrimary } = parseMenuGroup(item.group);
 

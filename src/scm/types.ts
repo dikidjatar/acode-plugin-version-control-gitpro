@@ -123,6 +123,7 @@ export interface ISCMService {
 export interface ISCMCommandAction {
   readonly id: string;
   readonly title: string;
+  readonly icon?: string;
   arguments?: unknown[];
 }
 
@@ -131,6 +132,7 @@ export interface ISCMMenuItemAction {
   readonly title: string;
   readonly submenu: boolean;
   readonly enabled: boolean;
+  readonly icon?: string,
   content(): string;
 }
 

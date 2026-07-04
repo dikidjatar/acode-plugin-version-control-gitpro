@@ -431,7 +431,7 @@ function initializeMenus(logger: LogOutputChannel): void {
 	// Repository menu
 	SCMMenuRegistry.registerMenuItems('scm/repository/menu', [
 		{
-			command: { id: 'git.refresh', title: '<span class="icon refresh"></span>' },
+			command: { id: 'git.refresh', title: 'Refresh', icon: 'refresh' },
 			group: 'navigation',
 			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git',
 			enablement: () => !App.getContext<boolean>('git.operationInProgress')
