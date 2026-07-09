@@ -138,8 +138,6 @@ See type definition files:
 - [`git.d.ts`](src/git/api/git.d.ts) - Git API types
 - [`sourceControl.d.ts`](src/scm/api/sourceControl.d.ts) - SCM API types
 
-For complete API documentation, see [DOCS.md](DOCS.md).
-
 ## Customization
 
 ### Settings Overview
@@ -214,4 +212,3 @@ internal APIs.
 _Happy coding ✨_
 
 </div>
-
