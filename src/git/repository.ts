@@ -1528,12 +1528,8 @@ export class Repository implements IDisposable {
         const lastLine = lines[lines.length - 1];
         const text = lastLine.trim() == '' ? `${textToAppend}\n` : `\n${textToAppend}\n`;
 
-        if (App.isCodeMirror()) {
-          editorManager.editor.dispatch({ changes: { from: doc.length, to: doc.length, insert: text } });
-        } else {
-          session.insert({ row: lines.length, column: 0 }, text);
-        }
-
+        editorManager.editor.dispatch({ changes: { from: doc.length, to: doc.length, insert: text } });
+        
         await file.save();
       }
 
