@@ -6,6 +6,8 @@ The source control interface provides access to Git functionality through a grap
 
 Changes you make in the Acode interface are synced with your command-line Git operations, so you can use both the UI and terminal as needed. The source control interface works alongside the command line rather than replacing it.
 
+## Prerequisites
+
 To use Git features in Acode, you need:
 
 - Acode uses your machine's Git installation. [Install Git version 2.0.0 or later](https://git-scm.com/download) on your machine.

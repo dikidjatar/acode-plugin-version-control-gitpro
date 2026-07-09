@@ -8,7 +8,7 @@
 
 **Professional Git integration for Acode Editor**
 
-[Features](#features) • [Installation](#installation) • [Requirements](#requirements) • [API](#api-documentation) • [Contributing](#contributing)
+[Features](#features) • [Installation](#installation) • [Requirements](#requirements) • [API](#api) • [Contributing](#contributing)
 
 </div>
 
@@ -40,22 +40,7 @@ After installation, generate and configure your SSH keys normally.
 
 ## Features
 
-### Core Git Operations
-
-- **Repository Management**: Init, Clone, Multi-repository support
-- **Staging & Commits**: Stage/unstage files, commit, amend commits, undo commits
-- **Branches**: Create, delete, rename, merge, rebase branches
-- **Remote Operations**: Pull, push, fetch (with prune), sync (Pull & Push)
-- **History**: View commit history
-- **Tags & Remotes**: Tag and remote management
-
-### Acode Integration
-
-- **File Decorations**: Visual decoration in SCM panel and file explorer
-- **Editor Integration**: Commit message editor opens in Acode (via IPC)
-- **Credential Management**: Integrated askpass for authentication
-- **Multi-repository**: Work with multiple Git repositories
-- **Status Bar**: Quick sync actions and repository status
+See [Git support in Acode](/docs/overview.md) to learn about the features of this plugin.
 
 ## Installation
 
@@ -69,12 +54,6 @@ After installation, generate and configure your SSH keys normally.
 
 The plugin follows a **Shell → Parse → Render** workflow. The same architecture as the VS Code Git extension:
 
-```mermaid
-flowchart LR
-    A["⚡ Shell\nAcode Executor API"] --> B["🔍 Parse\nstdout/stderr\n→ Models"]
-    B --> C["🖥️ Render\nUI · Views\nDecorations"]
-```
-
 | Stage      | Responsibility                                            |
 | ---------- | --------------------------------------------------------- |
 | **Shell**  | Execute Git commands via Acode Executor API               |
@@ -83,11 +62,17 @@ flowchart LR
 
 ---
 
-## API Documentation
+## API
 
-### Git API
+The Git extension exposes an API, reachable by any other plugin.
+
+#### Git API
 
 Access the Git API in Acode:
+
+1. Copy `src/api/git.d.ts` to your plugin's sources;
+2. Include `git.d.ts` in your plugin's compilation.
+3. Get a hold of the API with the following snippet:
 
 ```javascript
 const gitPlugin = acode.require("git");
@@ -109,7 +94,7 @@ await repo.commit("Your commit message", { all: true });
 await repo.push("origin", "main");
 ```
 
-### SCM API
+#### SCM API
 
 Access the SCM API:
 
@@ -138,48 +123,6 @@ See type definition files:
 - [`git.d.ts`](src/git/api/git.d.ts) - Git API types
 - [`sourceControl.d.ts`](src/scm/api/sourceControl.d.ts) - SCM API types
 
-## Customization
-
-### Settings Overview
-
-| Setting                  | Description                             | Default |
-| ------------------------ | --------------------------------------- | ------- |
-| `enabled`                | Enable/disable Git integration          | `true`  |
-| `useEditorAsCommitInput` | Use Acode editor for commit messages    | `true`  |
-| `decorationsEnabled`     | Show file decorations                   | `true`  |
-| `autorefresh`            | Automatically refresh repository status | `true`  |
-| `autofetch`              | Automatically fetch from remote         | `true`  |
-| `autofetchPeriod`        | Fetch interval in seconds               | `180`   |
-| `enableSmartCommit`      | Commit all changes when nothing staged  | `false` |
-| `confirmSync`            | Confirm before sync operation           | `true`  |
-| `allowForcePush`         | Allow force push operations             | `false` |
-
-> 💡 See all available settings in **Acode → Settings → Plugins → Git SCM**.
-
-### Command Palette Commands
-
-Press `Ctrl+Shift+P` and type `Git` to see all available commands:
-
-<details>
-<summary>View all commands</summary>
-<br/>
-
-```
-Git: Clone                   Git: Init
-Git: Pull                    Git: Push
-Git: Fetch                   Git: Sync
-Git: Commit                  Git: Commit (Amend)
-Git: Undo Last Commit        Git: Create Branch
-Git: Checkout                Git: Merge Branch
-Git: Rebase Branch           Git: Add Remote
-Git: Stage All Changes       Git: Unstage All Changes
-...
-```
-
-</details>
-
----
-
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
@@ -202,7 +145,6 @@ internal APIs.
 ## Support & Contact
 
 - **Issues**: [GitHub Issues](https://github.com/dikidjatar/acode-plugin-version-control-gitpro/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/dikidjatar/acode-plugin-version-control-gitpro/discussions)
 - **Email**: dikidjatar@gmail.com
 
 ---
