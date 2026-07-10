@@ -80,10 +80,12 @@ export class UnifiedDiff {
     const getFontSettingsExtension = () => {
       const fontSize = settingsValue.fontSize || "12px";
       const lineHeight = settingsValue.lineHeight || 1.5;
+      const font = settingsValue.editorFont || "Roboto Mono";
+      const fontFamily = `${font}, Noto Mono, Monaco, monospace`;
       return EditorView.theme({
         "&": { fontSize, lineHeight: String(lineHeight) },
         ".cm-scroller": {
-          fontFamily: "var(--editor-font-family, inherit)",
+          fontFamily,
         },
       });
     };
