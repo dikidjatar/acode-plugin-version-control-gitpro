@@ -350,3 +350,16 @@ export function spawn(
   });
   return process;
 }
+
+export function exec(
+  command: string,
+  args: string[] = [],
+  options: SpawnOptions = {}
+): Promise<ExecResult> {
+  const cmd = buildCommand(command, args, options);
+  return new Promise<ExecResult>((c) => {
+    Executor.execute(cmd, options.alpine ?? true)
+      .then((stdout) => c({ exitCode: 0, stdout, stderr: '' }))
+      .catch((err) => c({ exitCode: 1, stdout: '', stderr: err?.message || String(err) }))
+  });
+}

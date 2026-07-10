@@ -336,6 +336,29 @@ export class Git {
     };
   }
 
+  async exec2(cwd: string, args: string[], options: SpawnOptions = {}): Promise<IExecutionResult> {
+    options = assign({ cwd }, options || {});
+    if (options.alpine !== false) {
+      options.alpine = true;
+    }
+
+    if (!options.shell && this.shell) {
+      options.shell = this.shell;
+    }
+
+    options.env = assign({}, this.env, options.env || {}, {
+      ACODE_GIT_COMMANDS: args[0],
+      GIT_PAGER: 'cat'
+    });
+
+    const _cwd = this.getCwd(options);
+    if (_cwd) {
+      options.cwd = cwd;
+    }
+
+    return await process.exec(this.path, args, options) as IExecutionResult;
+  }
+
   async exec(cwd: string, args: string[], options: SpawnOptions = {}): Promise<IExecutionResult> {
     options = assign({ cwd }, options || {});
     return await this._exec(args, options);
@@ -907,6 +930,10 @@ export class Repository {
     return this.repositoryRootRealPath;
   }
 
+  async exec2(args: string[], options: SpawnOptions = {}): Promise<IExecutionResult> {
+    return await this.git.exec2(this.repositoryRoot, args, options);
+  }
+
   async exec(args: string[], options: SpawnOptions = {}): Promise<IExecutionResult> {
     return await this.git.exec(this.repositoryRoot, args, options);
   }
@@ -1027,13 +1054,12 @@ export class Repository {
 
   async buffer(ref: string, filePath: string): Promise<string> {
     const relativePath = this.sanitizeRelativePath(filePath);
-    const child = this.stream(['show', '--textconv', `${ref}:${relativePath}`]);
 
-    if (!child.stdout) {
+    const { exitCode, stdout, stderr } = await this.exec2(['show', '--textconv', `${ref}:${relativePath}`]);
+
+    if (!stdout) {
       return Promise.reject('Can\'t open file from git');
     }
-
-    const { exitCode, stdout, stderr } = await exec(child);
 
     if (exitCode) {
       const err = new GitError({
