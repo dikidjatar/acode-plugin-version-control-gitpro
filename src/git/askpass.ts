@@ -133,6 +133,9 @@ export class AskPass implements IIPCHandler {
   private env: { [key: string]: string };
   private sshEnv: { [key: string]: string };
   private cache = new Map<string, Credentials>();
+  private sshPassphrase?: string;
+  private sshPassphraseTimer?: ReturnType<typeof setTimeout>;
+
   private credentialsProviders = new Set<CredentialsProvider>();
 
   private disposable = Disposable.None;
@@ -317,10 +320,31 @@ export class AskPass implements IIPCHandler {
     }
   }
 
-  async handleSSHAskpass(argv: string[]): Promise<string> {
-    return '';
-  }
 
+  async handleSSHAskpass(argv: string[]): Promise<string> {
+
+    const promptText = argv.slice(1).join(" ");
+
+    if (/passphrase/i.test(promptText)) {
+      const cached = this.cache.get("__ssh_passphrase__");
+      if (cached?.password) {
+        return cached.password;
+      }
+
+      const passphrase = await prompt("SSH Key Passphrase", "", "text", {
+        placeholder: promptText,
+        required: true
+      });
+
+      if (passphrase) {
+        this.cache.set("__ssh_passphrase__", { username: "", password: passphrase });
+        setTimeout(() => this.cache.delete("__ssh_passphrase__"), 300000);
+        return passphrase;
+      }
+    }
+
+    return "";
+  }
   getEnv(): { [key: string]: string } {
     const gitConfig = config.get('vcgit')!;
     return gitConfig.useIntegratedAskPass ? { ...this.env, ...this.sshEnv } : {};
