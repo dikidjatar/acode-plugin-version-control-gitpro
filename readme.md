@@ -118,7 +118,9 @@ changes.resourceStates = [
 ];
 ```
 
-See type definition files:
+For a complete API reference see the [API reference documentation](/docs/api-reference.md).
+
+See also type definition files:
 
 - [`git.d.ts`](src/git/api/git.d.ts) - Git API types
 - [`sourceControl.d.ts`](src/scm/api/sourceControl.d.ts) - SCM API types
