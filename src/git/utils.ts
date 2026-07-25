@@ -6,6 +6,7 @@ const ACODE_TERMINAL_FILES = `/data/user/0/${window.BuildInfo.packageName}/files
 
 const Url = acode.require('Url');
 const fs = acode.require('fs');
+const editorLanguages = acode.require("editorLanguages");
 
 export type Mutable<T> = {
 	-readonly [P in keyof T]: T[P]
@@ -247,9 +248,8 @@ export function getCommitShortHash(hash: string): string {
 }
 
 export function getModeForFile(filename: string) {
-	const { getModeForPath } = ace.require('ace/ext/modelist');
-	const { name } = getModeForPath(filename);
-	return `ace/mode/${name}`;
+	const mode = editorLanguages?.getForPath(filename);
+	return mode?.name || '';
 }
 
 interface ILimitedTaskFactory<T> {
