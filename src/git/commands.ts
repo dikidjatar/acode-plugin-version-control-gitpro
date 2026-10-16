@@ -2948,7 +2948,7 @@ export class CommandCenter {
   }
 
   private getSCMResource(path?: string): Resource | undefined {
-    path = path ? path : uriToPath(editorManager.activeFile.uri);
+    path = path ? path : editorManager.activeFile?.uri ? uriToPath(editorManager.activeFile.uri) : undefined;
 
     this.logger.debug(`[CommandCenter][getSCMResource] git.getSCMResource.uri: ${path}`);
 
