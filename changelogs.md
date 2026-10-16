@@ -1,5 +1,11 @@
 # ChangeLog
 
+## [2.10.0] - 2026-10-16
+
+- Added multi-selection support for SCM resources via swipe-right gesture and click-to-toggle in selection mode, enabling batch actions (Stage, Unstage, Discard, Open Changes, Open File, Open File (HEAD), Add to `.gitignore`)
+- Added "Changes" submenu to the repository menu (`Stage All Changes`, `Unstage All Changes`, `Discard All Changes`)
+- Improved touch swipe-right selection stability
+
 ## [2.9.2] - 2026-07-19
 
 - Added SSH passphrase support for integrated SSH_ASKPASS by [@vamsi-krishna2580](http://github.com/vamsi-krishna2580)
