@@ -381,8 +381,7 @@ class SCMRepositoryMenus implements IDisposable, ISCMRepositoryMenus {
   private getOrCreateResourceGroupMenusItem(group: ISCMResourceGroup): SCMMenusItem {
     let result = this.resourceGroupMenusItems.get(group);
     if (!result) {
-      this.context.scmResourceGroup = group.id;
-      result = new SCMMenusItem(this.context);
+      result = new SCMMenusItem({ ...this.context, scmResourceGroup: group.id });
       this.resourceGroupMenusItems.set(group, result);
     }
     return result;
@@ -436,6 +435,7 @@ export class SCMMenus implements ISCMMenus, IDisposable {
       }
 
       result = { menus, dispose };
+      this.menus.set(provider, result);
     }
 
     return result.menus;

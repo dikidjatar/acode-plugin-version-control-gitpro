@@ -848,11 +848,11 @@ export class CommandCenter {
   }
 
   @command('Open File')
-  async openFile(arg?: Resource | string): Promise<void> {
-    let uri: string | undefined;
+  async openFile(arg?: Resource | string, ...resourceStates: SourceControlResourceState[]): Promise<void> {
+    const uris: string[] = [];
 
     if (typeof arg === 'string') {
-      uri = toFileUrl(arg);
+      uris.push(toFileUrl(arg));
     } else {
       let resource = arg;
 
@@ -860,17 +860,24 @@ export class CommandCenter {
         resource = this.getSCMResource();
       }
 
-      if (resource && resource.type !== Status.DELETED && resource.type !== Status.INDEX_DELETED) {
-        uri = toFileUrl(resource.resourceUri);
+      if (resource) {
+        const resources = [resource, ...resourceStates.filter((r): r is Resource => r instanceof Resource)];
+        for (const item of resources) {
+          if (item.type !== Status.DELETED && item.type !== Status.INDEX_DELETED) {
+            uris.push(toFileUrl(item.resourceUri));
+          }
+        }
       }
     }
 
-    if (!uri) {
+    if (uris.length === 0) {
       return;
     }
 
-    const file = new EditorFile(Url.basename(uri)!, { uri });
-    file.makeActive();
+    for (const uri of uris) {
+      const file = new EditorFile(Url.basename(uri)!, { uri });
+      file.makeActive();
+    }
 
     if (localStorage.sidebarShown === '1') {
       acode.exec('toggle-sidebar');
@@ -878,55 +885,65 @@ export class CommandCenter {
   }
 
   @command('Open File (HEAD)')
-  async openHEADFile(arg?: Resource | string): Promise<void> {
-    let resource: Resource | undefined = undefined;
+  async openHEADFile(arg?: Resource | string, ...resourceStates: SourceControlResourceState[]): Promise<void> {
+    let resources: Resource[] | undefined = undefined;
 
     if (arg instanceof Resource) {
-      resource = arg;
+      resources = [arg, ...resourceStates.filter((r): r is Resource => r instanceof Resource)];
     } else if (typeof arg === 'string') {
-      resource = this.getSCMResource(arg);
+      const resource = this.getSCMResource(arg);
+      if (resource !== undefined) {
+        resources = [resource];
+      }
     } else {
-      resource = this.getSCMResource();
+      const resource = this.getSCMResource();
+      if (resource !== undefined) {
+        resources = [resource];
+      }
     }
 
-    if (!resource) {
+    if (!resources || resources.length === 0) {
       return;
     }
 
-    const basename = Url.basename(resource.resourceUri);
-    const title = `${basename} (HEAD)`;
-    let HEAD: string | undefined = undefined;
+    let opened = false;
+    for (const resource of resources) {
+      const basename = Url.basename(resource.resourceUri);
+      const title = `${basename} (HEAD)`;
+      let HEAD: string | undefined = undefined;
 
-    switch (resource.type) {
-      case Status.INDEX_MODIFIED:
-      case Status.INDEX_RENAMED:
-      case Status.INTENT_TO_RENAME:
-      case Status.TYPE_CHANGED:
-        HEAD = toGitUri(resource.original, 'HEAD');
-        break;
+      switch (resource.type) {
+        case Status.INDEX_MODIFIED:
+        case Status.INDEX_RENAMED:
+        case Status.INTENT_TO_RENAME:
+        case Status.TYPE_CHANGED:
+          HEAD = toGitUri(resource.original, 'HEAD');
+          break;
 
-      case Status.MODIFIED:
-        HEAD = toGitUri(resource.resourceUri, '~');
-        break;
+        case Status.MODIFIED:
+          HEAD = toGitUri(resource.resourceUri, '~');
+          break;
 
-      case Status.DELETED_BY_US:
-      case Status.DELETED_BY_THEM:
-        HEAD = toGitUri(resource.resourceUri, '~1');
-        break;
+        case Status.DELETED_BY_US:
+        case Status.DELETED_BY_THEM:
+          HEAD = toGitUri(resource.resourceUri, '~1');
+          break;
 
-      default:
-        break;
+        default:
+          break;
+      }
+
+      if (!HEAD) {
+        acode.pushNotification('', `HEAD version of "${basename}" is not available.`, { type: 'warning' });
+        continue;
+      }
+
+      const file = new EditorFile(title, { uri: HEAD, editable: false });
+      file.setMode(getModeForFile(basename!));
+      opened = true;
     }
 
-    if (!HEAD) {
-      acode.pushNotification('', `HEAD version of "${basename}" is not available.`, { type: 'warning' });
-      return;
-    }
-
-    const file = new EditorFile(title, { uri: HEAD, editable: false });
-    file.setMode(getModeForFile(basename!));
-
-    if (localStorage.sidebarShown === '1') {
+    if (opened && localStorage.sidebarShown === '1') {
       acode.exec('toggle-sidebar');
     }
   }
@@ -2948,7 +2965,8 @@ export class CommandCenter {
   }
 
   private getSCMResource(path?: string): Resource | undefined {
-    path = path ? path : editorManager.activeFile?.uri ? uriToPath(editorManager.activeFile.uri) : undefined;
+    const activeUri = editorManager.activeFile?.uri;
+    path = path ? path : activeUri ? uriToPath(activeUri) : undefined;
 
     this.logger.debug(`[CommandCenter][getSCMResource] git.getSCMResource.uri: ${path}`);
 

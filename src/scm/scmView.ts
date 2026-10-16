@@ -2,7 +2,7 @@ import { config } from "../base/config";
 import { decorationService } from "../base/decorationService";
 import { Disposable, DisposableMap, DisposableStore, IDisposable } from "../base/disposable";
 import { Emitter, Event } from "../base/event";
-import { CollapsableList, IListContextMenuEvent, IListDelegate, IListMouseEvent, IListRenderer } from "../base/list";
+import { CollapsableList, IListContextMenuEvent, IListDelegate, IListEvent, IListMouseEvent, IListRenderer, unthemedListStyles } from "../base/list";
 import { fromNow } from "../git/utils";
 import { SCMMenuItemAction } from "./menus";
 import { IResourceNode, ResourceTree } from "./resourceTree";
@@ -15,6 +15,14 @@ const selectmenu = acode.require('select');
 const Url = acode.require('Url');
 
 type TreeElement = ISCMRepository | ISCMInput | ISCMActionButton | ISCMSeparator | ISCMResourceGroup | ISCMResource | IResourceNode<ISCMResource, ISCMResourceGroup>;
+
+function isSelectableResource(element: TreeElement | undefined): element is ISCMResource {
+  return !!element && isSCMResource(element) && element.contextValue !== 'commit';
+}
+
+function getResourceSelectionKey(resource: ISCMResource): string {
+  return `${resource.resourceGroup.provider.id}:${resource.resourceGroup.id}:${resource.sourceUri}`;
+}
 
 export class SCMSeparatorRenderer implements IListRenderer<ISCMSeparator, void> {
 
@@ -400,6 +408,10 @@ class ListDelegate implements IListDelegate<TreeElement> {
       throw new Error('Unknown element');
     }
   }
+
+  isSupportedSwipeRight(element: TreeElement): boolean {
+    return isSelectableResource(element);
+  }
 }
 
 class SCMInputWidget {
@@ -512,6 +524,7 @@ export class SCMView extends Disposable.Disposable implements IView {
   private collapsedResourceGroups = new Set<ISCMResourceGroup>();
   private initializedDefaultCollapsedResourceGroups = new WeakSet<ISCMResourceGroup>();
   private expandedNodes = new Set<IResourceNode<ISCMResource, ISCMResourceGroup>>();
+  private selectedResources = new Set<ISCMResource>();
 
   private repositoryStates = new Map<ISCMRepository, RepositoryTreeState>();
   private readonly items = new DisposableMap<ISCMRepository, IDisposable>();
@@ -576,6 +589,7 @@ export class SCMView extends Disposable.Disposable implements IView {
         this.listScrollTop = undefined;
       }
     } else {
+      this.selectedResources.clear();
       this.visibilityDisposables.clear();
       this.list.splice(0, this.list.length, []);
       this.onDidChangeVisibleRepositories({ added: [], removed: [...this.items.keys()] });
@@ -614,9 +628,11 @@ export class SCMView extends Disposable.Disposable implements IView {
       }
     );
     this.list.title.dataset.type = 'root';
+    this.list.style(unthemedListStyles);
     this._register(this.list);
     this._register(this.list.onMouseClick(this.onListClick, this));
     this._register(this.list.onContextMenu(this.onListContextMenu, this));
+    this._register(this.list.onDidSwipeRightSelect(this.onListSwipeRightSelect, this));
     this._register(this.list.onDidChangeContentHeight(this.updateHeight, this));
 
     const onResize = () => {
@@ -751,6 +767,7 @@ export class SCMView extends Disposable.Disposable implements IView {
     if (!previousState) {
       const insertionIndex = this.findRepositoryInsertionIndex(repository);
       this.list.splice(insertionIndex, 0, newElements);
+      this.updateListSelection();
       return;
     }
 
@@ -760,10 +777,12 @@ export class SCMView extends Disposable.Disposable implements IView {
     if (startIndex === -1) {
       const insertionIndex = this.findRepositoryInsertionIndex(repository);
       this.list.splice(insertionIndex, 0, newElements);
+      this.updateListSelection();
       return;
     }
 
     this.list.splice(startIndex, oldElements.length, newElements);
+    this.updateListSelection();
   }
 
   private findRepositoryStartIndex(repository: ISCMRepository): number {
@@ -835,6 +854,7 @@ export class SCMView extends Disposable.Disposable implements IView {
     }
 
     this.repositoryStates.delete(repository);
+    this.updateListSelection();
   }
 
   private updateAllRepositories(): void {
@@ -847,6 +867,7 @@ export class SCMView extends Disposable.Disposable implements IView {
     }
 
     this.list.splice(0, this.list.length, allElements);
+    this.updateListSelection();
   }
 
   private onDidChangeVisibleRepositories({ added, removed }: ISCMViewVisibleRepositoryChangeEvent): void {
@@ -891,7 +912,99 @@ export class SCMView extends Disposable.Disposable implements IView {
     }
   }
 
+  private onListSwipeRightSelect(e: IListEvent<TreeElement>): void {
+    const element = e.elements[0];
+    if (!isSelectableResource(element)) {
+      return;
+    }
+
+    this.toggleResourceSelection(element, e.browserEvent);
+  }
+
+  private toggleResourceSelection(resource: ISCMResource, browserEvent?: UIEvent): void {
+    const targetKey = getResourceSelectionKey(resource);
+    let removed = false;
+
+    for (const item of this.selectedResources) {
+      if (getResourceSelectionKey(item) === targetKey) {
+        this.selectedResources.delete(item);
+        removed = true;
+      }
+    }
+
+    if (!removed) {
+      this.selectedResources.add(resource);
+    }
+
+    this.updateListSelection(browserEvent);
+  }
+
+  private isResourceSelected(resource: ISCMResource): boolean {
+    const targetKey = getResourceSelectionKey(resource);
+    for (const item of this.selectedResources) {
+      if (getResourceSelectionKey(item) === targetKey) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private clearSelection(browserEvent?: UIEvent): void {
+    if (this.selectedResources.size === 0 && this.list.getSelection().length === 0) {
+      return;
+    }
+
+    this.selectedResources.clear();
+    this.list.setSelection([], browserEvent);
+  }
+
+  private updateListSelection(browserEvent?: UIEvent): void {
+    if (this.selectedResources.size === 0) {
+      if (this.list.getSelection().length > 0) {
+        this.list.setSelection([], browserEvent);
+      }
+      return;
+    }
+
+    const selectedKeys = new Set<string>();
+    for (const resource of this.selectedResources) {
+      selectedKeys.add(getResourceSelectionKey(resource));
+    }
+
+    const nextSelectedResources = new Set<ISCMResource>();
+    const selectedIndexes: number[] = [];
+
+    for (let i = 0; i < this.list.length; i++) {
+      const element = this.list.element(i);
+      if (isSelectableResource(element) && selectedKeys.has(getResourceSelectionKey(element))) {
+        nextSelectedResources.add(element);
+        selectedIndexes.push(i);
+      }
+    }
+
+    this.selectedResources = nextSelectedResources;
+    this.list.setSelection(selectedIndexes, browserEvent);
+  }
+
+  private getMultiResourceActions(resources: ISCMResource[]): ISCMMenuItemAction[] {
+    const actionMap = new Map<string, ISCMMenuItemAction>();
+
+    for (const resource of resources) {
+      const menus = this.scmViewService.menus.getRepositoryMenus(resource.resourceGroup.provider);
+      const menu = menus.getResourceMenu(resource);
+      for (const action of menu.getSecondaryActions()) {
+        if (!actionMap.has(action.id)) {
+          actionMap.set(action.id, action);
+        }
+      }
+    }
+
+    return [...actionMap.values()];
+  }
+
   private onListClick(e: IListMouseEvent<TreeElement>): void {
+    e.browserEvent.isHandledByList = true;
+
     if (!e.element) {
       return;
     } else if (isSCMRepository(e.element)) {
@@ -904,6 +1017,11 @@ export class SCMView extends Disposable.Disposable implements IView {
       this.toggleResourceGroup(e.element);
       return;
     } else if (isSCMResource(e.element)) {
+      if (this.selectedResources.size > 0 && isSelectableResource(e.element)) {
+        this.toggleResourceSelection(e.element, e.browserEvent);
+        return;
+      }
+
       e.element.open();
     } else if (isSCMResourceNode(e.element)) {
       const node = e.element;
@@ -934,6 +1052,7 @@ export class SCMView extends Disposable.Disposable implements IView {
     let context: unknown = element;
     let showSelectMenu: boolean = false;
     let selectMenuTitle: string = '';
+    let clearResourceSelectionOnExecute = false;
 
     if (isSCMRepository(element)) {
       menus = this.scmViewService.menus.getRepositoryMenus(element.provider);
@@ -949,19 +1068,48 @@ export class SCMView extends Disposable.Disposable implements IView {
       showSelectMenu = true;
       selectMenuTitle = `Group (${element.label})`;
     } else if (isSCMResource(element)) {
-      menus = this.scmViewService.menus.getRepositoryMenus(element.resourceGroup.provider);
-      menu = menus.getResourceMenu(element);
-      actions = menu.getSecondaryActions();
-      showSelectMenu = true;
-      selectMenuTitle = Url.basename(element.sourceUri)!;
-    } else if (isSCMResourceNode(element)) {
-      if (element.element) {
-        const menus = this.scmViewService.menus.getRepositoryMenus(element.element.resourceGroup.provider);
-        menu = menus.getResourceMenu(element.element);
+      if (isSelectableResource(element) && this.isResourceSelected(element)) {
+        const selected = [
+          element,
+          ...[...this.selectedResources].filter(r => getResourceSelectionKey(r) !== getResourceSelectionKey(element))
+        ];
+        actions = this.getMultiResourceActions(selected);
+        showSelectMenu = true;
+        selectMenuTitle = selected.length > 1
+          ? `${Url.basename(element.sourceUri)} (${selected.length} selected)`
+          : Url.basename(element.sourceUri)!;
+        context = selected;
+        clearResourceSelectionOnExecute = true;
+      } else {
+        menus = this.scmViewService.menus.getRepositoryMenus(element.resourceGroup.provider);
+        menu = menus.getResourceMenu(element);
         actions = menu.getSecondaryActions();
         showSelectMenu = true;
-        selectMenuTitle = Url.basename(element.element.sourceUri)!;
-        context = element.element;
+        selectMenuTitle = Url.basename(element.sourceUri)!;
+      }
+    } else if (isSCMResourceNode(element)) {
+      if (element.element) {
+        const resource = element.element;
+        if (isSelectableResource(resource) && this.isResourceSelected(resource)) {
+          const selected = [
+            resource,
+            ...[...this.selectedResources].filter(r => getResourceSelectionKey(r) !== getResourceSelectionKey(resource))
+          ];
+          actions = this.getMultiResourceActions(selected);
+          showSelectMenu = true;
+          selectMenuTitle = selected.length > 1
+            ? `${Url.basename(resource.sourceUri)} (${selected.length} selected)`
+            : Url.basename(resource.sourceUri)!;
+          context = selected;
+          clearResourceSelectionOnExecute = true;
+        } else {
+          const menus = this.scmViewService.menus.getRepositoryMenus(resource.resourceGroup.provider);
+          menu = menus.getResourceMenu(resource);
+          actions = menu.getSecondaryActions();
+          showSelectMenu = true;
+          selectMenuTitle = Url.basename(resource.sourceUri)!;
+          context = resource;
+        }
       } else {
         const menus = this.scmViewService.menus.getRepositoryMenus(element.context.provider);
         menu = menus.getResourceFolderMenu(element.context);
@@ -985,6 +1133,10 @@ export class SCMView extends Disposable.Disposable implements IView {
 
       if (!command) {
         return;
+      }
+
+      if (clearResourceSelectionOnExecute) {
+        this.clearSelection();
       }
 
       if (Array.isArray(context)) {
