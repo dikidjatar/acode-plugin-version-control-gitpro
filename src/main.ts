@@ -473,44 +473,50 @@ function initializeMenus(logger: LogOutputChannel): void {
 			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git'
 		},
 		{
-			command: { id: 'git.pullpush', title: 'Pull, Push' },
+			command: { id: 'git.changes', title: 'Changes' },
 			group: '2_main@2',
 			submenu: true,
 			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git'
 		},
 		{
-			command: { id: 'git.branch', title: 'Branch' },
+			command: { id: 'git.pullpush', title: 'Pull, Push' },
 			group: '2_main@3',
 			submenu: true,
 			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git'
 		},
 		{
-			command: { id: 'git.remotes', title: 'Remote' },
+			command: { id: 'git.branch', title: 'Branch' },
 			group: '2_main@4',
 			submenu: true,
 			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git'
 		},
 		{
-			command: { id: 'git.stash', title: 'Stash' },
+			command: { id: 'git.remotes', title: 'Remote' },
 			group: '2_main@5',
 			submenu: true,
 			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git'
 		},
 		{
-			command: { id: 'git.tags', title: 'Tags' },
+			command: { id: 'git.stash', title: 'Stash' },
 			group: '2_main@6',
 			submenu: true,
 			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git'
 		},
 		{
-			command: { id: 'git.worktrees', title: 'Worktrees' },
+			command: { id: 'git.tags', title: 'Tags' },
 			group: '2_main@7',
 			submenu: true,
 			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git'
 		},
 		{
-			command: { id: 'git.history', title: 'History' },
+			command: { id: 'git.worktrees', title: 'Worktrees' },
 			group: '2_main@8',
+			submenu: true,
+			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git'
+		},
+		{
+			command: { id: 'git.history', title: 'History' },
+			group: '2_main@9',
 			when: (ctx: SCMMenuContext) => ctx.scmProvider === 'git',
 			enablement: () => !App.getContext<boolean>('git.operationInProgress')
 		},
@@ -771,6 +777,25 @@ function initializeMenus(logger: LogOutputChannel): void {
 			command: { id: 'git.commitAllAmendNoVerify', title: 'Commit All (Amend, No Verify)' },
 			group: '4_amend_noverify@3',
 			when: () => config.get('vcgit')?.allowNoVerifyCommit === true,
+			enablement: () => !App.getContext<boolean>('git.operationInProgress')
+		}
+	]);
+
+	// Changes
+	SCMMenuRegistry.registerMenuItems('git.changes', [
+		{
+			command: { id: 'git.stageAll', title: 'Stage All Changes' },
+			group: '1_changes@1',
+			enablement: () => !App.getContext<boolean>('git.operationInProgress')
+		},
+		{
+			command: { id: 'git.unstageAll', title: 'Unstage All Changes' },
+			group: '1_changes@2',
+			enablement: () => !App.getContext<boolean>('git.operationInProgress')
+		},
+		{
+			command: { id: 'git.cleanAll', title: 'Discard All Changes' },
+			group: '1_changes@3',
 			enablement: () => !App.getContext<boolean>('git.operationInProgress')
 		}
 	]);
