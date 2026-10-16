@@ -109,42 +109,20 @@ interface IListOptions<T> {
 }
 
 interface TouchState {
-  /**
-   * clientX of the initial touch point.
-   */
   startX: number;
-  /**
-   * clientY of the initial touch point.
-   */
   startY: number;
-  /**
-   * List index of the item that was touched, or undefined for empty space.
-   */
   index: number | undefined;
-  /**
-   * True once the horizontal swipe crosses SWIPE_THRESHOLD_X.
-   */
-  isDragging: boolean;
-  /**
-   * The `li.tile` element
-   */
+  isSwiping: boolean;
+  isThresholdReached: boolean;
   tileElement: HTMLElement | null;
-  /**
-   * All direct children of `tileEl`
-   */
   feedbackElements: HTMLElement[];
 }
 
 class List<T> implements IDisposable {
   private static InstanceCount = 0;
 
-  /**
-   * Minimum horizontal pixels the finger must travel to confirm a swipe-select.
-   */
+  private static readonly SWIPE_START_X = 10;
   private static readonly SWIPE_THRESHOLD_X = 50;
-  /**
-   * Maximum vertical drift allowed before the swipe is cancelled.
-   */
   private static readonly SWIPE_MAX_Y = 40;
 
   readonly domId = `list_id_${++List.InstanceCount}`;
@@ -172,6 +150,8 @@ class List<T> implements IDisposable {
   }
 
   private touchState: TouchState | undefined = undefined;
+  private ignoreNextClick: boolean = false;
+  private ignoreNextClickTimer: ReturnType<typeof setTimeout> | undefined = undefined;
 
   private readonly _onDidChangeContentHeight = this.disposables.add(new Emitter<number>());
   readonly onDidChangeContentHeight: Event<number> = this._onDidChangeContentHeight.event;
@@ -200,11 +180,6 @@ class List<T> implements IDisposable {
   get onPointer(): Event<IListMouseEvent<T>> { return this._onPointer.event; }
 
   private readonly _onDidSwipeRightSelect = this.disposables.add(new Emitter<IListEvent<T>>());
-  /**
-   * Fires when the user performs a right-swipe gesture on a list item.
-   * The event carries the single item that was swiped so callers can
-   * toggle its selection without replacing the full selection set.
-   */
   readonly onDidSwipeRightSelect: Event<IListEvent<T>> = this._onDidSwipeRightSelect.event;
 
   constructor(
@@ -234,22 +209,33 @@ class List<T> implements IDisposable {
       this.styleController = new DefaultStyleController(styleElement, this.domId);
     }
 
-    this.disposables.add(Event.fromDOMEvent(this.domNode, 'click')((e) => {
+    this.disposables.add(Event.fromDOMEvent(this.scrollableElement, 'click')((e) => {
+      if (this.ignoreNextClick) {
+        this.clearIgnoreNextClick();
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+
       const mouseEvent = this.toMouseEvent(e);
       this._onMouseClick.fire(mouseEvent);
       this.onViewPointer(mouseEvent);
     }));
 
-    this.domNode.oncontextmenu = (e) => {
+    this.scrollableElement.oncontextmenu = (e) => {
+      if (this.touchState?.isSwiping) {
+        e.preventDefault();
+        return;
+      }
+
+      this.resetTouchState();
       this._onContextMenu.fire(this.toMouseEvent(e));
     };
 
     // Touch swipe-right listeners
-    // touchmove must be non-passive so we can call preventDefault() to
-    // suppress vertical scrolling while the user is swiping horizontally.
     Event.fromDOMEvent(this.scrollableElement, 'touchstart', { passive: true })(this.onTouchStart, this, this.disposables);
     Event.fromDOMEvent(this.scrollableElement, 'touchmove', { passive: false })(this.onTouchMove, this, this.disposables);
-    Event.fromDOMEvent(this.scrollableElement, 'touchend', { passive: true })(this.onTouchEnd, this, this.disposables);
+    Event.fromDOMEvent(this.scrollableElement, 'touchend', { passive: false })(this.onTouchEnd, this, this.disposables);
     Event.fromDOMEvent(this.scrollableElement, 'touchcancel', { passive: true })(this.onTouchCancel, this, this.disposables);
 
     // Inject swipe-selection styles scoped to this list instance.
@@ -409,7 +395,6 @@ class List<T> implements IDisposable {
     }
 
     const oldSelection = this.getSelection();
-    const oldSet = new Set(oldSelection);
     const newSet = new Set(indexes);
 
     // Update selected state
@@ -510,81 +495,79 @@ class List<T> implements IDisposable {
     this._onPointer.fire(e);
   }
 
-  // Touch swipe-right handlers
-
-  /**
-   * Records the finger's starting position and which item it landed on.
-   * Only single-finger touches are tracked. Multi-touch resets state.
-   */
   private onTouchStart(e: TouchEvent): void {
     if (e.touches.length !== 1) {
-      this.onTouchCancel();
+      this.resetTouchState();
+      return;
+    }
+
+    const target = e.target as HTMLElement | null;
+    if (target && isEditableElement(target)) {
+      this.resetTouchState();
+      return;
+    }
+
+    const index = this.getItemIndexFromEventTarget(e.target);
+    if (typeof index === 'undefined' || !this.isSwipeRightSupported(index)) {
+      this.resetTouchState();
       return;
     }
 
     const touch = e.touches[0];
-    const index = this.getItemIndexFromEventTarget(e.target);
-    const swipeIndex = (typeof index !== 'undefined' && this.isSwipeRightSupported(index))
-      ? index
-      : undefined;
-
-    const tileElement = index !== undefined ? (this.items[index]?.row?.domNode ?? null) : null;
-    // Collect ALL direct children so the entire tile content moves as one unit.
-    const feedbackEls = tileElement ? (Array.from(tileElement.children) as HTMLElement[]) : [];
+    const tileElement = this.items[index]?.row?.domNode ?? null;
+    const feedbackElements = tileElement ? (Array.from(tileElement.children) as HTMLElement[]) : [];
 
     this.touchState = {
       startX: touch.clientX,
       startY: touch.clientY,
-      index: swipeIndex,
-      isDragging: false,
-      tileElement: tileElement,
-      feedbackElements: feedbackEls
+      index,
+      isSwiping: false,
+      isThresholdReached: false,
+      tileElement,
+      feedbackElements
     };
   }
 
   private onTouchMove(e: TouchEvent): void {
-    if (!this.touchState || this.touchState.index === undefined) {
+    if (!this.touchState || this.touchState.index === undefined || e.touches.length !== 1) {
       return;
     }
 
     const touch = e.touches[0];
     const deltaX = touch.clientX - this.touchState.startX;
     const deltaY = Math.abs(touch.clientY - this.touchState.startY);
-    const totalDelta = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
 
-    // Cancel when the gesture is primarily vertical (after enough movement
-    // to reliably determine intent).
-    if (deltaY > List.SWIPE_MAX_Y || (totalDelta > 15 && deltaY > deltaX * 1.2)) {
-      for (const element of this.touchState.feedbackElements) {
-        element.style.transform = '';
+    if (!this.touchState.isSwiping) {
+      if (deltaY > 12 && deltaY > Math.abs(deltaX) || deltaX < -12) {
+        this.resetTouchState();
+        return;
       }
-      if (this.touchState.tileElement) {
-        this.touchState.tileElement.classList.remove('swipe-selecting');
+
+      if (deltaX < List.SWIPE_START_X || deltaX <= deltaY * 1.5) {
+        return;
       }
-      this.touchState.isDragging = false;
+
+      this.touchState.isSwiping = true;
+    }
+
+    if (deltaY > List.SWIPE_MAX_Y) {
+      this.resetTouchState();
       return;
     }
 
-    if (deltaX > 0) {
-      // Suppress vertical scroll only when the swipe is clearly horizontal
-      if (deltaX > deltaY * 1.5) {
-        e.preventDefault();
-      }
+    if (e.cancelable) {
+      e.preventDefault();
+    }
 
-      // Translate the tile capped so it never slides too far off screen
-      const cappedX = Math.min(deltaX * 0.4, 24);
-      const overThreshold = deltaX >= List.SWIPE_THRESHOLD_X;
+    const offsetX = Math.max(0, Math.min(deltaX * 0.4, 24));
+    const overThreshold = deltaX >= List.SWIPE_THRESHOLD_X;
+    this.touchState.isThresholdReached = overThreshold;
 
-      for (const element of this.touchState.feedbackElements) {
-        element.style.transform = `translateX(${cappedX}px)`;
-      }
-      if (this.touchState.tileElement) {
-        this.touchState.tileElement.classList.toggle('swipe-selecting', overThreshold);
-      }
-
-      if (overThreshold) {
-        this.touchState.isDragging = true;
-      }
+    for (const element of this.touchState.feedbackElements) {
+      element.style.transform = offsetX > 0 ? `translateX(${offsetX}px)` : '';
+    }
+    if (this.touchState.tileElement) {
+      this.touchState.tileElement.classList.toggle('swipe-selecting', overThreshold);
     }
   }
 
@@ -593,21 +576,17 @@ class List<T> implements IDisposable {
       return;
     }
 
-    const { feedbackElements, tileElement, isDragging, index } = this.touchState;
+    const { tileElement, isSwiping, isThresholdReached, index } = this.touchState;
+    this.resetTouchState();
 
-    for (const element of feedbackElements) {
-      element.style.transform = '';
+    if (isSwiping) {
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+      this.markIgnoreNextClick();
     }
-    if (tileElement) {
-      tileElement.classList.remove('swipe-selecting');
-    }
 
-    if (isDragging && index !== undefined) {
-      // Block the synthetic click that mobile browsers fire after touchend,
-      // which would invoke onViewPointer and undo the multi-select.
-      e.preventDefault();
-
-      // Brief flash to confirm the toggle
+    if (isThresholdReached && index !== undefined) {
       if (tileElement) {
         tileElement.classList.add('swipe-select-flash');
         setTimeout(() => tileElement.classList.remove('swipe-select-flash'), 380);
@@ -625,6 +604,10 @@ class List<T> implements IDisposable {
   }
 
   private onTouchCancel(): void {
+    this.resetTouchState();
+  }
+
+  private resetTouchState(): void {
     if (this.touchState) {
       for (const el of this.touchState.feedbackElements) {
         el.style.transform = '';
@@ -634,6 +617,23 @@ class List<T> implements IDisposable {
       }
     }
     this.touchState = undefined;
+  }
+
+  private markIgnoreNextClick(): void {
+    this.clearIgnoreNextClick();
+    this.ignoreNextClick = true;
+    this.ignoreNextClickTimer = setTimeout(() => {
+      this.ignoreNextClick = false;
+      this.ignoreNextClickTimer = undefined;
+    }, 400);
+  }
+
+  private clearIgnoreNextClick(): void {
+    this.ignoreNextClick = false;
+    if (this.ignoreNextClickTimer !== undefined) {
+      clearTimeout(this.ignoreNextClickTimer);
+      this.ignoreNextClickTimer = undefined;
+    }
   }
 
   private isSwipeRightSupported(index: number): boolean {
@@ -647,6 +647,9 @@ class List<T> implements IDisposable {
   }
 
   dispose(): void {
+    this.resetTouchState();
+    this.clearIgnoreNextClick();
+
     for (const item of this.items) {
       if (item.row) {
         const renderer = this.renderers.get(item.templateId);
