@@ -7,7 +7,7 @@ export const enum ViewMode {
   Tree = 'tree'
 }
 
-export const defualtScmConfig: ISCMConfig = {
+export const defaultScmConfig: ISCMConfig = {
   inputMaxLineCount: 10,
   inputMinLineCount: 1,
   alwaysShowRepositories: true,
@@ -15,6 +15,8 @@ export const defualtScmConfig: ISCMConfig = {
   selectionMode: 'multiple',
   defaultViewMode: 'list'
 }
+
+export const defualtScmConfig = defaultScmConfig;
 
 export interface ISCMResourceDecoration {
   icon?: string;
