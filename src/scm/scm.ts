@@ -4,7 +4,6 @@ import { debounce } from '../base/decorators';
 import { SyncDescriptor } from '../base/descriptor';
 import { Disposable, IDisposable } from '../base/disposable';
 import { Emitter, Event } from '../base/event';
-import { SettingsItems, SettingsPage } from '../base/settingsPage';
 import { SourceControl, SourceControlActionButton, SourceControlCommandAction, SourceControlInputBox, SourceControlMenuItem, SourceControlProgess, SourceControlResourceDecorations, SourceControlResourceGroup, SourceControlResourceState, SourceControlViewContainer } from './api/sourceControl';
 import { SCMMenuService } from './scmMenuService';
 import { SCM } from './scmProvider';
@@ -13,7 +12,7 @@ import { SCMService } from './scmService';
 import { SCMView } from './scmView';
 import { SCMViewContainer } from './scmViewContainer';
 import { SCMViewService } from './scmViewService';
-import { IMainSCM, ISCMCommandAction, ISCMCommandService, ISCMMenuItem, ISCMProvider, ISCMService, SCMArgumentProcessor, SCMMarshalledId, SCMMenuContext, SCMMenuRegistry, SCMRawResource, SCMRawResourceSplice, SCMRawResourceSplices, defualtScmConfig } from './types';
+import { IMainSCM, ISCMCommandAction, ISCMCommandService, ISCMMenuItem, ISCMProvider, ISCMService, SCMArgumentProcessor, SCMMarshalledId, SCMMenuContext, SCMMenuRegistry, SCMRawResource, SCMRawResourceSplice, SCMRawResourceSplices, defaultScmConfig } from './types';
 import { comparePaths } from './utils';
 
 const terminal = acode.require('terminal');
@@ -699,9 +698,7 @@ export namespace scm {
   export async function initialize(baseUrl: string): Promise<IDisposable> {
     const disposables: IDisposable[] = [];
 
-    await config.init('scm', defualtScmConfig);
-    const appSettings = acode.require('settings');
-    appSettings.uiSettings['scm-settings'] = scmSettings();
+    await config.init('scm', defaultScmConfig);
 
     acode.addIcon('scm', baseUrl + 'assets/vscode-codicons_source_control.svg', { monochrome: true });
     acode.addIcon('vscode-codicons_repo', baseUrl + 'assets/vscode-codicons_repo.svg', { monochrome: true });
@@ -822,61 +819,5 @@ export namespace scm {
         return App.getContext(id, defaultValue);
       }
     });
-  }
-
-  function scmSettings(): SettingsPage {
-    const configs = config.get('scm', defualtScmConfig)!;
-
-    const settings: SettingsItems = [
-      {
-        key: 'inputMaxLineCount',
-        value: configs.inputMaxLineCount,
-        text: 'SCM: Input Max Line Count',
-        info: 'Controls the maximum number of lines that the input will auto-grow to.',
-        prompt: 'Status Limit',
-        promptType: 'number'
-      },
-      {
-        key: 'inputMinLineCount',
-        value: configs.inputMinLineCount,
-        text: 'SCM: Input Min Line Count',
-        info: 'Controls the minimum number of lines that the input will auto-grow from.',
-        prompt: 'Status Limit',
-        promptType: 'number'
-      },
-      {
-        key: 'alwaysShowRepositories',
-        checkbox: configs.alwaysShowRepositories,
-        text: 'SCM: Always Show Repositories',
-        info: 'Controls whether inline actions are always visible in the Source Control view.'
-      },
-      {
-        key: 'showActionButton',
-        checkbox: configs.showActionButton,
-        text: 'SCM: Show Action Button',
-        info: 'Controls whether an action button can be shown in the Source Control view.'
-      },
-      {
-        key: 'selectionMode',
-        value: configs.selectionMode,
-        text: 'SCM Repositories: Selection Mode',
-        info: 'Controls the selection mode of the repositories in the Source Control Repositories view.',
-        select: ['single', 'multiple']
-      },
-      {
-        key: 'defaultViewMode',
-        value: configs.defaultViewMode,
-        select: ['list', 'tree'],
-        text: 'SCM: Default View Mode',
-        info: 'Controls the default Source Control repository view mode.'
-      }
-    ];
-
-    return new SettingsPage('SCM', settings, callback);
-
-    function callback(key: string, value: unknown): void {
-      const configs = config.get('scm', defualtScmConfig)!;
-      config.update('scm', { ...configs, [key]: value });
-    }
   }
 }

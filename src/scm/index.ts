@@ -1,2 +1,2 @@
 export { scm } from './scm';
-export { SCMMenuRegistry, SCMMenuContext } from './types';
+export { SCMMenuRegistry, SCMMenuContext, defaultScmConfig, defualtScmConfig } from './types';
