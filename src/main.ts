@@ -100,27 +100,21 @@ async function destroy() {
 }
 
 async function findShell(logger?: LogOutputChannel): Promise<string | undefined> {
-	const find = async (shell: string) => {
-		try {
-			const result = await getExecutor().execute(`which ${shell}`, true);
-			return result.trim();
-		} catch (err) {
-			logger?.error(`Find ${shell} error: ${err}`);
-			return undefined;
-		}
+	try {
+		const result = await getExecutor().execute('which bash || which sh', true);
+		const shell = result.trim().split(/\r?\n/)[0]?.trim();
+		return shell || undefined;
+	} catch (err) {
+		logger?.error(`Find shell error: ${err}`);
+		return undefined;
 	}
-
-	let result = await find('bash');
-	if (!result) {
-		result = await find('sh');
-	}
-
-	return result;
 }
 
 async function createModel(logger: LogOutputChannel, disposables: IDisposable[], ctx?: Acode.PluginContext | null): Promise<Model> {
-	const shell = await findShell(logger);
-	const info = await findGit();
+	const [shell, info] = await Promise.all([
+		findShell(logger),
+		findGit()
+	]);
 
 	logger.info(`[main] Using git "${info.version}" from "${info.path}"`);
 
@@ -136,8 +130,10 @@ async function createModel(logger: LogOutputChannel, disposables: IDisposable[],
 
 	const askpass = new AskPass(rootPath, ipcServer, logger, ctx);
 	const gitEditor = new GitEditor(rootPath, ipcServer, logger);
-	await askpass.setupScripts();
-	await gitEditor.setupScript();
+	await Promise.all([
+		askpass.setupScripts(),
+		gitEditor.setupScript()
+	]);
 	disposables.push(askpass);
 	disposables.push(gitEditor);
 
@@ -224,9 +220,9 @@ async function warnAboutMissingGit(): Promise<void> {
 }
 
 async function setupDirectory() {
-	const homeFs = fsOperation(`file://${ALPINE_HOME}`);
 	const vcgitFs = fsOperation(`file://${ALPINE_HOME}/.vcgit`);
 	if (!await vcgitFs.exists()) {
+		const homeFs = fsOperation(`file://${ALPINE_HOME}`);
 		await homeFs.createDirectory('.vcgit');
 	}
 }
@@ -259,49 +255,56 @@ async function initialize(baseUrl: string, options: Acode.PluginInitOptions): Pr
 	initializeViews(scmViewContainer);
 	disposables.push(new FileTreeDecoration());
 
-	if (!await Terminal.isInstalled()) {
-		App.setContext('acode.terminalMissing', true);
-		return new GitPluginImpl();
-	}
-
-	await setupDirectory();
-
 	const logger = new LogOutputChannel('Git');
 	disposables.push(logger);
 
 	initializeMenus(logger);
 
-	const gitConfig = config.get('vcgit');
-	const enabled = gitConfig!.enabled;
+	const gitPlugin = new GitPluginImpl();
 
-	if (!enabled) {
-		const onConfigChange = Event.filter(config.onDidChangeConfiguration, e => e.affectsConfiguration('vcgit'));
-		const onEnabled = Event.filter(onConfigChange, () => config.get('vcgit')?.enabled === true);
-		const result = new GitPluginImpl();
-		Event.toPromise(onEnabled).then(async () => result.model = await createModel(logger, disposables, options.ctx));
-		return result;
-	}
-
-	try {
-		const model = await createModel(logger, disposables, options.ctx);
-		return new GitPluginImpl(model);
-	} catch (err: any) {
-		console.warn(err.message);
-		logger.warn(`[main] Failed to create model: ${err}`);
-
-		if (!/Git installation not found/.test(err.message || '')) {
-			throw err;
+	// Initialize Git environment and Model asynchronously in
+	// the background so plugin startup is not blocked.
+	(async () => {
+		if (!await Terminal.isInstalled()) {
+			App.setContext('acode.terminalMissing', true);
+			return;
 		}
 
-		App.setContext('git.missing', true);
-		warnAboutMissingGit();
+		await setupDirectory();
 
-		return new GitPluginImpl();
-	} finally {
-		if (options.firstInit) {
-			acode.alert('WARNING', 'Need restart to take full effect');
+		const gitConfig = config.get('vcgit');
+		const enabled = gitConfig?.enabled ?? true;
+
+		if (!enabled) {
+			const onConfigChange = Event.filter(config.onDidChangeConfiguration, e => e.affectsConfiguration('vcgit'));
+			const onEnabled = Event.filter(onConfigChange, () => config.get('vcgit')?.enabled === true);
+			Event.toPromise(onEnabled).then(async () => gitPlugin.model = await createModel(logger, disposables, options.ctx));
+			return;
 		}
-	}
+
+		try {
+			const model = await createModel(logger, disposables, options.ctx);
+			gitPlugin.model = model;
+		} catch (err: any) {
+			console.warn(err.message);
+			logger.warn(`[main] Failed to create model: ${err}`);
+
+			if (!/Git installation not found/.test(err.message || '')) {
+				throw err;
+			}
+
+			App.setContext('git.missing', true);
+			warnAboutMissingGit();
+		} finally {
+			if (options.firstInit) {
+				acode.alert('WARNING', 'Need restart to take full effect');
+			}
+		}
+	})().catch(err => {
+		logger.error(`[main] background initialization error: ${err}`);
+	});
+
+	return gitPlugin;
 }
 
 function checkGitVersion(info: IGit): void {
