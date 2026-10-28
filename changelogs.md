@@ -1,5 +1,10 @@
 # ChangeLog
 
+## [2.10.1] - 2026-10-28
+
+- Fix: resolve slow init and app hang on startup
+- Optimize plugin initialization to prevent UI hang
+
 ## [2.10.0] - 2026-10-16
 
 - Added multi-selection support for SCM resources via swipe-right gesture and click-to-toggle in selection mode, enabling batch actions (Stage, Unstage, Discard, Open Changes, Open File, Open File (HEAD), Add to `.gitignore`)
